@@ -1,0 +1,13 @@
+Clear
+
+New object=circuit.ieee123
+!~ basekv=4.16 Bus1=1 pu=1.0  R1=0 X1=0.0001 R0=0 X0=0.0001   ! for NLP  at max load 1.016 min 0.9702
+Edit "Vsource.source" bus1=1 pu=1.05 R0=0 X0=0.00000001 phases=3 basekv=4.16 R1=0 X1=0.00000001
+
+Redirect MyLineCodes.txt
+Redirect Line.txt
+Redirect Load.txt
+
+Set VoltageBases = [4.16]    ! ARRAY OF VOLTAGES IN KV
+CalcVoltageBases  ! PERFORMS ZERO LOAD POWER FLOW TO ESTIMATE VOLTAGE BASES
+solve

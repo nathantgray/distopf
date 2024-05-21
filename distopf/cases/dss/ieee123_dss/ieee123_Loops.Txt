@@ -1,0 +1,7 @@
+Loops and Paralleled Lines in all EnergyMeter Zones
+
+(feeder) Transformer.REG4C: LOOPED TO     Transformer.reg4b
+(feeder) Transformer.REG4B: LOOPED TO     Transformer.reg4c
+(feeder) Transformer.REG4A: LOOPED TO     Transformer.reg4c
+(feeder) Transformer.REG3C: LOOPED TO     Transformer.reg3a
+(feeder) Transformer.REG3A: LOOPED TO     Transformer.reg3c

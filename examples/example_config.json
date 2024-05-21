@@ -1,0 +1,10 @@
+{
+  "data_path": "ieee123",
+  "output_dir": "output",
+  "control_variable": "Q",
+  "v_max": 1.05,
+  "v_min": 0.95,
+  "objective_function": "loss_min",
+  "solver": "CLARABEL",
+  "show_plots": true
+}

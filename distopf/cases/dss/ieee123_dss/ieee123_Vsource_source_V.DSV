@@ -1,0 +1,62 @@
+SetProp, 1E050,   -1E050, 1E050, -1E050, 16777215, 16777215, 0, 4
+NoScales,
+Caption, "Vsource.SOURCE Voltages"
+ChartCaption, "Vsource.SOURCE Voltages"
+Rect, 100, 10, 200, 50
+Label, 150, 15, 0, "Vsource.SOURCE", 0
+BoldLabel, 1
+Width, 7
+DataColor, 8421504
+Move, 0, 0
+Draw, 300, 0
+DataColor, 0
+Width, 3
+FStyle, 0
+Move, 0, 40
+Draw, 100, 40
+Center,  15, 42, 10, "0.99999"
+Center,  60, 42, 10, " /_     0.00"
+Center,  90, 42, 10, " ^"
+FStyle, 0
+Move, 0, 30
+Draw, 100, 30
+Center,  15, 32, 10, "0.999994"
+Center,  60, 32, 10, " /_  -120.00"
+Center,  90, 32, 10, " ^"
+FStyle, 0
+Move, 0, 20
+Draw, 100, 20
+Center,  15, 22, 10, "0.999993"
+Center,  60, 22, 10, " /_   120.00"
+Center,  90, 22, 10, " ^"
+Width, 1
+Width, 7
+Move, -5, 5
+Draw, -5, 45
+Center,  25, 50, 10, "150"
+Width, 3
+FStyle, 0
+Move, 300, 40
+Draw, 200, 40
+Center,  210, 42, 10, "^ "
+Center,  240, 42, 10, "0"
+Center,  280, 42, 10, " /_     0.00"
+FStyle, 0
+Move, 300, 30
+Draw, 200, 30
+Center,  210, 32, 10, "^ "
+Center,  240, 32, 10, "0"
+Center,  280, 32, 10, " /_     0.00"
+FStyle, 0
+Move, 300, 20
+Draw, 200, 20
+Center,  210, 22, 10, "^ "
+Center,  240, 22, 10, "0"
+Center,  280, 22, 10, " /_     0.00"
+Width, 1
+Width, 7
+Move, 305, 5
+Draw, 305, 45
+Center,  275, 50, 10, "150.0.0.0"
+Caption, " Voltages"
+PctRim, 5

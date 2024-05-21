@@ -1,0 +1,5 @@
+fb,tb,name,tap_a,tap_b,tap_c,phases
+1,2,RG1,7,7,7,abc
+13,15,RG2,-1,0,0,a
+30,31,RG3,0,0,-1,ac
+128,127,RG4,8,1,5,abc

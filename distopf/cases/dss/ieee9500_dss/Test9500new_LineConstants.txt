@@ -1,0 +1,1920 @@
+LINE CONSTANTS
+Frequency = 60 Hz, Earth resistivity = 100 ohm-m
+Earth Model = Deri
+
+
+--------------------------------------------------
+Geometry Code = 3ph-69kv_397_treewire
+
+R MATRIX, ohms per m
+0.00026293, 
+9.3208E-005, 0.00026998, 
+9.89238E-005, 0.000103135, 0.000283358, 
+
+jX MATRIX, ohms per m
+0.000751932, 
+0.000321999, 0.000734311, 
+0.000274056, 0.000297849, 0.000702036, 
+
+Susceptance (jB) MATRIX, S per m
+3.11862E-009, 
+-7.71284E-010, 3.2297E-009, 
+-5.01138E-010, -7.38915E-010, 3.21554E-009, 
+
+L MATRIX, mH per m
+0.00199456, 
+0.000854128, 0.00194782, 
+0.000726956, 0.00079007, 0.00186221, 
+
+C MATRIX, nF per m
+0.00827238, 
+-0.0020459, 0.00856706, 
+-0.00132931, -0.00196003, 0.0085295, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.000173667 + j 0.000431458 (L1 = 0.00114448 mH) 
+Z0, ohms per m = 0.000468934 + j 0.00132536 (L0 = 0.00351563 mH) 
+
+C1, nF per m = 0.0102347
+C0, nF per m = 0.00489949
+
+Surge Impedance:
+  Positive sequence = 334.4 ohms
+  Zero sequence     = 847.084 ohms
+  Common Mode       = 282.181 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.4624 
+  Zero sequence     = 80.3715 
+
+
+--------------------------------------------------
+Geometry Code = 1p_1/0_axnj_db
+
+R MATRIX, ohms per m
+0.000907569, 
+
+jX MATRIX, ohms per m
+0.000277902, 
+
+Susceptance (jB) MATRIX, S per m
+8.80495E-008, 
+
+L MATRIX, mH per m
+0.000737159, 
+
+C MATRIX, nF per m
+0.233559, 
+
+--------------------------------------------------
+Geometry Code = 3p_1/0_axnj_db
+
+R MATRIX, ohms per m
+0.000776533, 
+0.000114154, 0.000762173, 
+9.06869E-005, 0.000114154, 0.000776533, 
+
+jX MATRIX, ohms per m
+0.000250064, 
+-1.30109E-005, 0.000232002, 
+-3.08568E-005, -1.30109E-005, 0.000250064, 
+
+Susceptance (jB) MATRIX, S per m
+8.80495E-008, 
+0, 8.80495E-008, 
+0, 0, 8.80495E-008, 
+
+L MATRIX, mH per m
+0.000663315, 
+-3.45125E-005, 0.000615404, 
+-8.18502E-005, -3.45125E-005, 0.000663315, 
+
+C MATRIX, nF per m
+0.233559, 
+0, 0.233559, 
+0, 0, 0.233559, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.000665415 + j 0.000263003 (L1 = 0.000697637 mH) 
+Z0, ohms per m = 0.000984409 + j 0.000206124 (L0 = 0.000546762 mH) 
+
+C1, nF per m = 0.233559
+C0, nF per m = 0.233559
+
+Surge Impedance:
+  Positive sequence = 54.6533 ohms
+  Zero sequence     = 48.3839 ohms
+  Common Mode       = 16.1284 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 26.1316 
+  Zero sequence     = 29.5177 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_acsrx4_acsr
+
+R MATRIX, ohms per m
+0.00167466, 
+
+jX MATRIX, ohms per m
+0.00093456, 
+
+Susceptance (jB) MATRIX, S per m
+2.34614E-009, 
+
+L MATRIX, mH per m
+0.002479, 
+
+C MATRIX, nF per m
+0.00622332, 
+
+--------------------------------------------------
+Geometry Code = 1ph-xx4_acsr4_acsr
+
+R MATRIX, ohms per m
+0.00167466, 
+
+jX MATRIX, ohms per m
+0.00093456, 
+
+Susceptance (jB) MATRIX, S per m
+2.34614E-009, 
+
+L MATRIX, mH per m
+0.002479, 
+
+C MATRIX, nF per m
+0.00622332, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x2_acsrx2_acsr
+
+R MATRIX, ohms per m
+0.0011223, 
+
+jX MATRIX, ohms per m
+0.000896365, 
+
+Susceptance (jB) MATRIX, S per m
+2.33436E-009, 
+
+L MATRIX, mH per m
+0.00237768, 
+
+C MATRIX, nF per m
+0.00619207, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_acsrx4_wpal
+
+R MATRIX, ohms per m
+0.00167723, 
+
+jX MATRIX, ohms per m
+0.000932411, 
+
+Susceptance (jB) MATRIX, S per m
+2.35297E-009, 
+
+L MATRIX, mH per m
+0.0024733, 
+
+C MATRIX, nF per m
+0.00624145, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-4_acsr4_acsr4_acsr4_acsr
+
+R MATRIX, ohms per m
+0.0016834, 
+0.000138324, 0.00167686, 
+0.000142669, 0.000139294, 0.00168543, 
+
+jX MATRIX, ohms per m
+0.0009273, 
+0.000432623, 0.000932728, 
+0.000412253, 0.000450469, 0.000925637, 
+
+Susceptance (jB) MATRIX, S per m
+2.68827E-009, 
+-6.01664E-010, 2.73873E-009, 
+-4.77837E-010, -7.01444E-010, 2.74614E-009, 
+
+L MATRIX, mH per m
+0.00245974, 
+0.00114757, 0.00247414, 
+0.00109353, 0.00119491, 0.00245533, 
+
+C MATRIX, nF per m
+0.00713084, 
+-0.00159596, 0.00726471, 
+-0.0012675, -0.00186064, 0.00728437, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.0015418 + j 0.000496773 (L1 = 0.00131773 mH) 
+Z0, ohms per m = 0.00196209 + j 0.00179212 (L0 = 0.00475374 mH) 
+
+C1, nF per m = 0.00880134
+C0, nF per m = 0.00407724
+
+Surge Impedance:
+  Positive sequence = 386.936 ohms
+  Zero sequence     = 1079.78 ohms
+  Common Mode       = 359.931 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.947 
+  Zero sequence     = 75.7667 
+
+
+--------------------------------------------------
+Geometry Code = 3ph_h-2/0_acsr2/0_acsr2/0_acsr2_acsr
+
+R MATRIX, ohms per m
+0.00066087, 
+0.000137499, 0.000653999, 
+0.000142066, 0.000138518, 0.000663007, 
+
+jX MATRIX, ohms per m
+0.000869947, 
+0.000388579, 0.000878528, 
+0.000366115, 0.000405953, 0.0008673, 
+
+Susceptance (jB) MATRIX, S per m
+2.74709E-009, 
+-6.24252E-010, 2.8019E-009, 
+-4.94751E-010, -7.28875E-010, 2.80837E-009, 
+
+L MATRIX, mH per m
+0.00230761, 
+0.00103074, 0.00233037, 
+0.000971151, 0.00107682, 0.00230059, 
+
+C MATRIX, nF per m
+0.00728689, 
+-0.00165588, 0.00743228, 
+-0.00131237, -0.0019334, 0.00744943, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.00051993 + j 0.000485043 (L1 = 0.00128662 mH) 
+Z0, ohms per m = 0.000938015 + j 0.00164569 (L0 = 0.00436533 mH) 
+
+C1, nF per m = 0.00902341
+C0, nF per m = 0.00412177
+
+Surge Impedance:
+  Positive sequence = 377.606 ohms
+  Zero sequence     = 1029.12 ohms
+  Common Mode       = 343.026 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.897 
+  Zero sequence     = 78.6374 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-4_wpalxx2_wpal
+
+R MATRIX, ohms per m
+0.00163092, 
+
+jX MATRIX, ohms per m
+0.000861221, 
+
+Susceptance (jB) MATRIX, S per m
+2.47624E-009, 
+
+L MATRIX, mH per m
+0.00228446, 
+
+C MATRIX, nF per m
+0.00656844, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-4_acsr2_acsr2_acsr4_wpal
+
+R MATRIX, ohms per m
+0.00168626, 
+0.000141078, 0.00112824, 
+0.000145566, 0.00014208, 0.0011371, 
+
+jX MATRIX, ohms per m
+0.000924966, 
+0.000430359, 0.000933765, 
+0.000409898, 0.000448185, 0.000926495, 
+
+Susceptance (jB) MATRIX, S per m
+2.69134E-009, 
+-5.95905E-010, 2.72471E-009, 
+-4.71616E-010, -6.90466E-010, 2.73435E-009, 
+
+L MATRIX, mH per m
+0.00245355, 
+0.00114156, 0.00247689, 
+0.00108729, 0.00118885, 0.0024576, 
+
+C MATRIX, nF per m
+0.00713901, 
+-0.00158069, 0.00722752, 
+-0.001251, -0.00183152, 0.00725309, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.00117429 + j 0.000498928 (L1 = 0.00132345 mH) 
+Z0, ohms per m = 0.00160302 + j 0.00178737 (L0 = 0.00474115 mH) 
+
+C1, nF per m = 0.00876094
+C0, nF per m = 0.00409774
+
+Surge Impedance:
+  Positive sequence = 388.667 ohms
+  Zero sequence     = 1075.65 ohms
+  Common Mode       = 360.75 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.9603 
+  Zero sequence     = 75.6773 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-4_acsrxx4_acsr
+
+R MATRIX, ohms per m
+0.00167466, 
+
+jX MATRIX, ohms per m
+0.00093456, 
+
+Susceptance (jB) MATRIX, S per m
+2.34614E-009, 
+
+L MATRIX, mH per m
+0.002479, 
+
+C MATRIX, nF per m
+0.00622332, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-4_acsr4_acsr4_acsr4_wpal
+
+R MATRIX, ohms per m
+0.00168626, 
+0.000141078, 0.0016795, 
+0.000145566, 0.00014208, 0.00168836, 
+
+jX MATRIX, ohms per m
+0.000924966, 
+0.000430359, 0.000930531, 
+0.000409898, 0.000448185, 0.000923261, 
+
+Susceptance (jB) MATRIX, S per m
+2.69253E-009, 
+-5.98572E-010, 2.74097E-009, 
+-4.73419E-010, -6.98241E-010, 2.75072E-009, 
+
+L MATRIX, mH per m
+0.00245355, 
+0.00114156, 0.00246831, 
+0.00108729, 0.00118885, 0.00244903, 
+
+C MATRIX, nF per m
+0.00714216, 
+-0.00158776, 0.00727065, 
+-0.00125578, -0.00185214, 0.00729651, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.0015418 + j 0.000496772 (L1 = 0.00131773 mH) 
+Z0, ohms per m = 0.00197053 + j 0.00178521 (L0 = 0.00473543 mH) 
+
+C1, nF per m = 0.00880167
+C0, nF per m = 0.00410598
+
+Surge Impedance:
+  Positive sequence = 386.928 ohms
+  Zero sequence     = 1073.92 ohms
+  Common Mode       = 357.977 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.9453 
+  Zero sequence     = 75.6469 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-2_acsrxx2_acsr
+
+R MATRIX, ohms per m
+0.0011223, 
+
+jX MATRIX, ohms per m
+0.000896365, 
+
+Susceptance (jB) MATRIX, S per m
+2.33436E-009, 
+
+L MATRIX, mH per m
+0.00237768, 
+
+C MATRIX, nF per m
+0.00619207, 
+
+--------------------------------------------------
+Geometry Code = 1ph-4_wpalxx4_acsr
+
+R MATRIX, ohms per m
+0.00163124, 
+
+jX MATRIX, ohms per m
+0.000898979, 
+
+Susceptance (jB) MATRIX, S per m
+2.4769E-009, 
+
+L MATRIX, mH per m
+0.00238462, 
+
+C MATRIX, nF per m
+0.00657017, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-397_acsr397_acsr397_acsr2/0_acsr
+
+R MATRIX, ohms per m
+0.000270019, 
+0.000109951, 0.000264634, 
+0.000113538, 0.000110747, 0.000271698, 
+
+jX MATRIX, ohms per m
+0.000695974, 
+0.00033351, 0.000708729, 
+0.000308271, 0.000350259, 0.000692021, 
+
+Susceptance (jB) MATRIX, S per m
+3.53629E-009, 
+-9.41932E-010, 3.66514E-009, 
+-7.20603E-010, -1.12334E-009, 3.65549E-009, 
+
+L MATRIX, mH per m
+0.00184613, 
+0.000884662, 0.00187996, 
+0.000817713, 0.00092909, 0.00183564, 
+
+C MATRIX, nF per m
+0.00938029, 
+-0.00249855, 0.0097221, 
+-0.00191146, -0.00297975, 0.00969649, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.000157372 + j 0.000368228 (L1 = 0.000976756 mH) 
+Z0, ohms per m = 0.000491608 + j 0.00136027 (L0 = 0.00360822 mH) 
+
+C1, nF per m = 0.0120629
+C0, nF per m = 0.00467312
+
+Surge Impedance:
+  Positive sequence = 284.556 ohms
+  Zero sequence     = 878.705 ohms
+  Common Mode       = 292.791 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.1764 
+  Zero sequence     = 81.2324 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-2_acsrxx4_acsr
+
+R MATRIX, ohms per m
+0.00112339, 
+
+jX MATRIX, ohms per m
+0.000937794, 
+
+Susceptance (jB) MATRIX, S per m
+2.33493E-009, 
+
+L MATRIX, mH per m
+0.00248758, 
+
+C MATRIX, nF per m
+0.00619361, 
+
+--------------------------------------------------
+Geometry Code = 1ph-xx2_acsr2_acsr
+
+R MATRIX, ohms per m
+0.0011223, 
+
+jX MATRIX, ohms per m
+0.000896365, 
+
+Susceptance (jB) MATRIX, S per m
+2.33436E-009, 
+
+L MATRIX, mH per m
+0.00237768, 
+
+C MATRIX, nF per m
+0.00619207, 
+
+--------------------------------------------------
+Geometry Code = 1ph-xx4_wpal4_wpal
+
+R MATRIX, ohms per m
+0.00163382, 
+
+jX MATRIX, ohms per m
+0.00089683, 
+
+Susceptance (jB) MATRIX, S per m
+2.48451E-009, 
+
+L MATRIX, mH per m
+0.00237891, 
+
+C MATRIX, nF per m
+0.00659038, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_wpalx4_wpal
+
+R MATRIX, ohms per m
+0.00163382, 
+
+jX MATRIX, ohms per m
+0.00089683, 
+
+Susceptance (jB) MATRIX, S per m
+2.48451E-009, 
+
+L MATRIX, mH per m
+0.00237891, 
+
+C MATRIX, nF per m
+0.00659038, 
+
+--------------------------------------------------
+Geometry Code = 1ph-xx4_wpal4_acsr
+
+R MATRIX, ohms per m
+0.00163124, 
+
+jX MATRIX, ohms per m
+0.000898979, 
+
+Susceptance (jB) MATRIX, S per m
+2.4769E-009, 
+
+L MATRIX, mH per m
+0.00238462, 
+
+C MATRIX, nF per m
+0.00657017, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x2_acsrx1/0_tpx
+
+R MATRIX, ohms per m
+0.00103207, 
+
+jX MATRIX, ohms per m
+0.000801436, 
+
+Susceptance (jB) MATRIX, S per m
+2.34959E-009, 
+
+L MATRIX, mH per m
+0.00212588, 
+
+C MATRIX, nF per m
+0.00623248, 
+
+--------------------------------------------------
+Geometry Code = 1ph-4_acsrxx4_wpal
+
+R MATRIX, ohms per m
+0.00167723, 
+
+jX MATRIX, ohms per m
+0.000932411, 
+
+Susceptance (jB) MATRIX, S per m
+2.35297E-009, 
+
+L MATRIX, mH per m
+0.0024733, 
+
+C MATRIX, nF per m
+0.00624145, 
+
+--------------------------------------------------
+Geometry Code = 1ph-xx4_acsr1/0_tpx
+
+R MATRIX, ohms per m
+0.00158334, 
+
+jX MATRIX, ohms per m
+0.000798203, 
+
+Susceptance (jB) MATRIX, S per m
+2.36093E-009, 
+
+L MATRIX, mH per m
+0.0021173, 
+
+C MATRIX, nF per m
+0.00626257, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-4_wpal4_wpal4_wpal4_acsr
+
+R MATRIX, ohms per m
+0.00163999, 
+0.000138324, 0.00163344, 
+0.000142669, 0.000139294, 0.00164202, 
+
+jX MATRIX, ohms per m
+0.000891719, 
+0.000432623, 0.000897146, 
+0.000412253, 0.000450469, 0.000890056, 
+
+Susceptance (jB) MATRIX, S per m
+2.87713E-009, 
+-6.73756E-010, 2.94159E-009, 
+-5.30946E-010, -7.89407E-010, 2.94637E-009, 
+
+L MATRIX, mH per m
+0.00236536, 
+0.00114757, 0.00237975, 
+0.00109353, 0.00119491, 0.00236095, 
+
+C MATRIX, nF per m
+0.00763183, 
+-0.00178719, 0.0078028, 
+-0.00140838, -0.00209397, 0.0078155, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.00149839 + j 0.000461192 (L1 = 0.00122335 mH) 
+Z0, ohms per m = 0.00191867 + j 0.00175654 (L0 = 0.00465936 mH) 
+
+C1, nF per m = 0.00951322
+C0, nF per m = 0.00422368
+
+Surge Impedance:
+  Positive sequence = 358.601 ohms
+  Zero sequence     = 1050.31 ohms
+  Common Mode       = 350.108 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.7778 
+  Zero sequence     = 75.1918 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_wpalx4_acsr
+
+R MATRIX, ohms per m
+0.00163124, 
+
+jX MATRIX, ohms per m
+0.000898979, 
+
+Susceptance (jB) MATRIX, S per m
+2.4769E-009, 
+
+L MATRIX, mH per m
+0.00238462, 
+
+C MATRIX, nF per m
+0.00657017, 
+
+--------------------------------------------------
+Geometry Code = 1ph-4_wpalxx4_wpal
+
+R MATRIX, ohms per m
+0.00163382, 
+
+jX MATRIX, ohms per m
+0.00089683, 
+
+Susceptance (jB) MATRIX, S per m
+2.48451E-009, 
+
+L MATRIX, mH per m
+0.00237891, 
+
+C MATRIX, nF per m
+0.00659038, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-4_wpal4_wpal4_wpal4_wpal
+
+R MATRIX, ohms per m
+0.00164285, 
+0.000141078, 0.00163609, 
+0.000145566, 0.00014208, 0.00164495, 
+
+jX MATRIX, ohms per m
+0.000889385, 
+0.000430359, 0.00089495, 
+0.000409898, 0.000448185, 0.00088768, 
+
+Susceptance (jB) MATRIX, S per m
+2.88176E-009, 
+-6.70471E-010, 2.94392E-009, 
+-5.26149E-010, -7.86001E-010, 2.95135E-009, 
+
+L MATRIX, mH per m
+0.00235917, 
+0.00114156, 0.00237393, 
+0.00108729, 0.00118885, 0.00235464, 
+
+C MATRIX, nF per m
+0.0076441, 
+-0.00177848, 0.00780899, 
+-0.00139565, -0.00208493, 0.00782869, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.00149839 + j 0.000461191 (L1 = 0.00122335 mH) 
+Z0, ohms per m = 0.00192711 + j 0.00174963 (L0 = 0.00464104 mH) 
+
+C1, nF per m = 0.00951362
+C0, nF per m = 0.00425455
+
+Surge Impedance:
+  Positive sequence = 358.593 ohms
+  Zero sequence     = 1044.43 ohms
+  Common Mode       = 348.15 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.7758 
+  Zero sequence     = 75.0662 
+
+
+--------------------------------------------------
+Geometry Code = 3ph_h-2_acsr2_acsr2_acsr2_acsr
+
+R MATRIX, ohms per m
+0.00113148, 
+0.000137499, 0.00112461, 
+0.000142066, 0.000138518, 0.00113362, 
+
+jX MATRIX, ohms per m
+0.000884886, 
+0.000388579, 0.000893467, 
+0.000366115, 0.000405953, 0.000882239, 
+
+Susceptance (jB) MATRIX, S per m
+2.67202E-009, 
+-5.9598E-010, 2.72157E-009, 
+-4.73795E-010, -6.94494E-010, 2.72897E-009, 
+
+L MATRIX, mH per m
+0.00234723, 
+0.00103074, 0.00236999, 
+0.000971151, 0.00107682, 0.00234021, 
+
+C MATRIX, nF per m
+0.00708774, 
+-0.00158089, 0.00721918, 
+-0.00125678, -0.0018422, 0.00723881, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.000990541 + j 0.000499981 (L1 = 0.00132624 mH) 
+Z0, ohms per m = 0.00140862 + j 0.00166063 (L0 = 0.00440496 mH) 
+
+C1, nF per m = 0.00874187
+C0, nF per m = 0.004062
+
+Surge Impedance:
+  Positive sequence = 389.502 ohms
+  Zero sequence     = 1041.36 ohms
+  Common Mode       = 347.122 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.9638 
+  Zero sequence     = 78.8567 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-4_acsrxx1/0_tpx
+
+R MATRIX, ohms per m
+0.00158334, 
+
+jX MATRIX, ohms per m
+0.000798203, 
+
+Susceptance (jB) MATRIX, S per m
+2.36093E-009, 
+
+L MATRIX, mH per m
+0.0021173, 
+
+C MATRIX, nF per m
+0.00626257, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-4_acsr2_acsr2_acsr4_acsr
+
+R MATRIX, ohms per m
+0.0016834, 
+0.000138324, 0.00112559, 
+0.000142669, 0.000139294, 0.00113417, 
+
+jX MATRIX, ohms per m
+0.0009273, 
+0.000432623, 0.000935962, 
+0.000412253, 0.000450469, 0.000928871, 
+
+Susceptance (jB) MATRIX, S per m
+2.68706E-009, 
+-5.98992E-010, 2.72249E-009, 
+-4.76023E-010, -6.93643E-010, 2.72982E-009, 
+
+L MATRIX, mH per m
+0.00245974, 
+0.00114757, 0.00248272, 
+0.00109353, 0.00119491, 0.00246391, 
+
+C MATRIX, nF per m
+0.00712766, 
+-0.00158888, 0.00722162, 
+-0.00126269, -0.00183994, 0.00724106, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.00117429 + j 0.000498929 (L1 = 0.00132345 mH) 
+Z0, ohms per m = 0.00159458 + j 0.00179427 (L0 = 0.00475946 mH) 
+
+C1, nF per m = 0.00876062
+C0, nF per m = 0.0040691
+
+Surge Impedance:
+  Positive sequence = 388.675 ohms
+  Zero sequence     = 1081.51 ohms
+  Common Mode       = 362.705 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.9621 
+  Zero sequence     = 75.7968 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-xx4_acsr4_wpal
+
+R MATRIX, ohms per m
+0.00167723, 
+
+jX MATRIX, ohms per m
+0.000932411, 
+
+Susceptance (jB) MATRIX, S per m
+2.35297E-009, 
+
+L MATRIX, mH per m
+0.0024733, 
+
+C MATRIX, nF per m
+0.00624145, 
+
+--------------------------------------------------
+Geometry Code = 1ph-4_acsrxx2_acsr
+
+R MATRIX, ohms per m
+0.00167357, 
+
+jX MATRIX, ohms per m
+0.000893131, 
+
+Susceptance (jB) MATRIX, S per m
+2.34555E-009, 
+
+L MATRIX, mH per m
+0.0023691, 
+
+C MATRIX, nF per m
+0.00622177, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_wpalx1/0_tpx
+
+R MATRIX, ohms per m
+0.00153992, 
+
+jX MATRIX, ohms per m
+0.000762621, 
+
+Susceptance (jB) MATRIX, S per m
+2.49339E-009, 
+
+L MATRIX, mH per m
+0.00202292, 
+
+C MATRIX, nF per m
+0.00661393, 
+
+--------------------------------------------------
+Geometry Code = 1ph-xx4_acsr1/0_acsr
+
+R MATRIX, ohms per m
+0.00165698, 
+
+jX MATRIX, ohms per m
+0.000855269, 
+
+Susceptance (jB) MATRIX, S per m
+2.34642E-009, 
+
+L MATRIX, mH per m
+0.00226867, 
+
+C MATRIX, nF per m
+0.00622408, 
+
+--------------------------------------------------
+Geometry Code = 1ph-2_acsrxx4_wpal
+
+R MATRIX, ohms per m
+0.00112597, 
+
+jX MATRIX, ohms per m
+0.000935645, 
+
+Susceptance (jB) MATRIX, S per m
+2.3417E-009, 
+
+L MATRIX, mH per m
+0.00248188, 
+
+C MATRIX, nF per m
+0.00621156, 
+
+--------------------------------------------------
+Geometry Code = 1ph-xx2/0_acsr1/0_tpx
+
+R MATRIX, ohms per m
+0.000561461, 
+
+jX MATRIX, ohms per m
+0.000786498, 
+
+Susceptance (jB) MATRIX, S per m
+2.40293E-009, 
+
+L MATRIX, mH per m
+0.00208625, 
+
+C MATRIX, nF per m
+0.00637396, 
+
+--------------------------------------------------
+Geometry Code = 2ph_h-2_acsrx2_acsr2_acsr
+
+R MATRIX, ohms per m
+0.00113148, 
+0.000142066, 0.00113362, 
+
+jX MATRIX, ohms per m
+0.000884886, 
+0.000366115, 0.000882239, 
+
+Susceptance (jB) MATRIX, S per m
+2.54151E-009, 
+-6.25879E-010, 2.55175E-009, 
+
+L MATRIX, mH per m
+0.00234723, 
+0.000971151, 0.00234021, 
+
+C MATRIX, nF per m
+0.00674155, 
+-0.00166019, 0.00676872, 
+
+--------------------------------------------------
+Geometry Code = 1ph-2_wpalxx2_wpal
+
+R MATRIX, ohms per m
+0.00116232, 
+
+jX MATRIX, ohms per m
+0.000900036, 
+
+Susceptance (jB) MATRIX, S per m
+2.33436E-009, 
+
+L MATRIX, mH per m
+0.00238742, 
+
+C MATRIX, nF per m
+0.00619207, 
+
+--------------------------------------------------
+Geometry Code = 1ph-2_acsrxx4/0_tpx
+
+R MATRIX, ohms per m
+0.00107236, 
+
+jX MATRIX, ohms per m
+0.000807978, 
+
+Susceptance (jB) MATRIX, S per m
+2.35536E-009, 
+
+L MATRIX, mH per m
+0.00214323, 
+
+C MATRIX, nF per m
+0.0062478, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-397_acsr397_acsr397_acsr4_wpal
+
+R MATRIX, ohms per m
+0.000301838, 
+0.000141078, 0.000295078, 
+0.000145566, 0.00014208, 0.000303936, 
+
+jX MATRIX, ohms per m
+0.000796484, 
+0.000430359, 0.000802049, 
+0.000409898, 0.000448185, 0.000794778, 
+
+Susceptance (jB) MATRIX, S per m
+3.54029E-009, 
+-9.39299E-010, 3.66687E-009, 
+-7.16434E-010, -1.1206E-009, 3.65983E-009, 
+
+L MATRIX, mH per m
+0.00211274, 
+0.00114156, 0.0021275, 
+0.00108729, 0.00118885, 0.00210821, 
+
+C MATRIX, nF per m
+0.00939091, 
+-0.00249157, 0.00972668, 
+-0.0019004, -0.00297248, 0.009708, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.000157376 + j 0.00036829 (L1 = 0.000976919 mH) 
+Z0, ohms per m = 0.0005861 + j 0.00165673 (L0 = 0.00439462 mH) 
+
+C1, nF per m = 0.0120633
+C0, nF per m = 0.0046989
+
+Surge Impedance:
+  Positive sequence = 284.574 ohms
+  Zero sequence     = 967.08 ohms
+  Common Mode       = 322.311 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.1664 
+  Zero sequence     = 73.4042 
+
+
+--------------------------------------------------
+Geometry Code = 3ph_h-397_acsr397_acsr397_acsr397_acsr
+
+R MATRIX, ohms per m
+0.000214162, 
+5.57957E-005, 0.000212131, 
+5.71636E-005, 5.60892E-005, 0.000214801, 
+
+jX MATRIX, ohms per m
+0.000634957, 
+0.00027487, 0.000652375, 
+0.000246528, 0.00029092, 0.000629544, 
+
+Susceptance (jB) MATRIX, S per m
+3.55972E-009, 
+-9.26531E-010, 3.67526E-009, 
+-6.96214E-010, -1.10731E-009, 3.68087E-009, 
+
+L MATRIX, mH per m
+0.00168428, 
+0.000729114, 0.00173048, 
+0.000653935, 0.000771688, 0.00166992, 
+
+C MATRIX, nF per m
+0.00944245, 
+-0.0024577, 0.00974894, 
+-0.00184676, -0.00293723, 0.00976382, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.000157349 + j 0.000368186 (L1 = 0.000976644 mH) 
+Z0, ohms per m = 0.000326397 + j 0.0011805 (L0 = 0.00313138 mH) 
+
+C1, nF per m = 0.0120656
+C0, nF per m = 0.00482394
+
+Surge Impedance:
+  Positive sequence = 284.507 ohms
+  Zero sequence     = 805.688 ohms
+  Common Mode       = 268.379 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.1708 
+  Zero sequence     = 85.8243 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-xx2_acsr1/0_tpx
+
+R MATRIX, ohms per m
+0.00103207, 
+
+jX MATRIX, ohms per m
+0.000801436, 
+
+Susceptance (jB) MATRIX, S per m
+2.34959E-009, 
+
+L MATRIX, mH per m
+0.00212588, 
+
+C MATRIX, nF per m
+0.00623248, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_acsrx2_wpal
+
+R MATRIX, ohms per m
+0.00167434, 
+
+jX MATRIX, ohms per m
+0.000896802, 
+
+Susceptance (jB) MATRIX, S per m
+2.34555E-009, 
+
+L MATRIX, mH per m
+0.00237884, 
+
+C MATRIX, nF per m
+0.00622177, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_acsrx4_dpx
+
+R MATRIX, ohms per m
+0.0016773, 
+
+jX MATRIX, ohms per m
+0.000932059, 
+
+Susceptance (jB) MATRIX, S per m
+2.35297E-009, 
+
+L MATRIX, mH per m
+0.00247236, 
+
+C MATRIX, nF per m
+0.00624145, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-2_acsr2_acsr4_acsr4_acsr
+
+R MATRIX, ohms per m
+0.00113214, 
+0.000138324, 0.00112559, 
+0.000142669, 0.000139294, 0.00168543, 
+
+jX MATRIX, ohms per m
+0.000930534, 
+0.000432623, 0.000935962, 
+0.000412253, 0.000450469, 0.000925637, 
+
+Susceptance (jB) MATRIX, S per m
+2.67284E-009, 
+-5.95043E-010, 2.72275E-009, 
+-4.76079E-010, -6.9812E-010, 2.74468E-009, 
+
+L MATRIX, mH per m
+0.00246832, 
+0.00114757, 0.00248272, 
+0.00109353, 0.00119491, 0.00245533, 
+
+C MATRIX, nF per m
+0.00708992, 
+-0.0015784, 0.00722231, 
+-0.00126284, -0.00185182, 0.00728048, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.00117429 + j 0.000498929 (L1 = 0.00132345 mH) 
+Z0, ohms per m = 0.00159458 + j 0.00179427 (L0 = 0.00475946 mH) 
+
+C1, nF per m = 0.00876192
+C0, nF per m = 0.00406886
+
+Surge Impedance:
+  Positive sequence = 388.646 ohms
+  Zero sequence     = 1081.54 ohms
+  Common Mode       = 362.317 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.9548 
+  Zero sequence     = 75.7991 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-4_wpalxx1/0_tpx
+
+R MATRIX, ohms per m
+0.00153992, 
+
+jX MATRIX, ohms per m
+0.000762621, 
+
+Susceptance (jB) MATRIX, S per m
+2.49339E-009, 
+
+L MATRIX, mH per m
+0.00202292, 
+
+C MATRIX, nF per m
+0.00661393, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_acsrx1/0_tpx
+
+R MATRIX, ohms per m
+0.00158334, 
+
+jX MATRIX, ohms per m
+0.000798203, 
+
+Susceptance (jB) MATRIX, S per m
+2.36093E-009, 
+
+L MATRIX, mH per m
+0.0021173, 
+
+C MATRIX, nF per m
+0.00626257, 
+
+--------------------------------------------------
+Geometry Code = 1ph-4_acsrxx1/0_3w_cs
+
+R MATRIX, ohms per m
+0.00166186, 
+
+jX MATRIX, ohms per m
+0.000844051, 
+
+Susceptance (jB) MATRIX, S per m
+2.36093E-009, 
+
+L MATRIX, mH per m
+0.00223891, 
+
+C MATRIX, nF per m
+0.00626257, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x2_acsrx4_acsr
+
+R MATRIX, ohms per m
+0.00112339, 
+
+jX MATRIX, ohms per m
+0.000937794, 
+
+Susceptance (jB) MATRIX, S per m
+2.33493E-009, 
+
+L MATRIX, mH per m
+0.00248758, 
+
+C MATRIX, nF per m
+0.00619361, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x2_acsrx1/0_3w_cs
+
+R MATRIX, ohms per m
+0.00111059, 
+
+jX MATRIX, ohms per m
+0.000847285, 
+
+Susceptance (jB) MATRIX, S per m
+2.34959E-009, 
+
+L MATRIX, mH per m
+0.00224749, 
+
+C MATRIX, nF per m
+0.00623248, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-2/0_acsr2/0_acsr2/0_acsr2/0_acsr
+
+R MATRIX, ohms per m
+0.00063257, 
+0.000109951, 0.000627184, 
+0.000113538, 0.000110747, 0.000634249, 
+
+jX MATRIX, ohms per m
+0.000812752, 
+0.00033351, 0.000825507, 
+0.000308271, 0.000350259, 0.000808799, 
+
+Susceptance (jB) MATRIX, S per m
+2.74885E-009, 
+-6.22987E-010, 2.80281E-009, 
+-4.92931E-010, -7.27564E-010, 2.81025E-009, 
+
+L MATRIX, mH per m
+0.00215589, 
+0.000884662, 0.00218972, 
+0.000817713, 0.00092909, 0.00214541, 
+
+C MATRIX, nF per m
+0.00729154, 
+-0.00165252, 0.00743469, 
+-0.00130754, -0.00192992, 0.00745443, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.000519922 + j 0.000485006 (L1 = 0.00128652 mH) 
+Z0, ohms per m = 0.000854159 + j 0.00147705 (L0 = 0.00391798 mH) 
+
+C1, nF per m = 0.00902355
+C0, nF per m = 0.00413356
+
+Surge Impedance:
+  Positive sequence = 377.589 ohms
+  Zero sequence     = 973.574 ohms
+  Common Mode       = 324.492 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.8999 
+  Zero sequence     = 82.8869 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-2_acsrxx1/0_tpx
+
+R MATRIX, ohms per m
+0.00103207, 
+
+jX MATRIX, ohms per m
+0.000801436, 
+
+Susceptance (jB) MATRIX, S per m
+2.34959E-009, 
+
+L MATRIX, mH per m
+0.00212588, 
+
+C MATRIX, nF per m
+0.00623248, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-4_wpal4_wpal4_wpal1/0_tpx
+
+R MATRIX, ohms per m
+0.00154119, 
+4.23582E-005, 0.00154023, 
+4.3017E-005, 4.24921E-005, 0.0015415, 
+
+jX MATRIX, ohms per m
+0.000740322, 
+0.000286955, 0.000756994, 
+0.000259106, 0.000303117, 0.00073514, 
+
+Susceptance (jB) MATRIX, S per m
+2.8872E-009, 
+-6.66607E-010, 2.94666E-009, 
+-5.20505E-010, -7.81994E-010, 2.9572E-009, 
+
+L MATRIX, mH per m
+0.00196377, 
+0.000761171, 0.00200799, 
+0.000687301, 0.000804042, 0.00195002, 
+
+C MATRIX, nF per m
+0.00765854, 
+-0.00176823, 0.00781626, 
+-0.00138068, -0.0020743, 0.00784422, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.00149835 + j 0.000461093 (L1 = 0.00122309 mH) 
+Z0, ohms per m = 0.00162622 + j 0.00131027 (L0 = 0.0034756 mH) 
+
+C1, nF per m = 0.00951408
+C0, nF per m = 0.00429086
+
+Surge Impedance:
+  Positive sequence = 358.546 ohms
+  Zero sequence     = 900 ohms
+  Common Mode       = 299.988 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.7839 
+  Zero sequence     = 86.3758 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_wpalx2_acsr
+
+R MATRIX, ohms per m
+0.00163015, 
+
+jX MATRIX, ohms per m
+0.00085755, 
+
+Susceptance (jB) MATRIX, S per m
+2.47624E-009, 
+
+L MATRIX, mH per m
+0.00227472, 
+
+C MATRIX, nF per m
+0.00656844, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-2/0_acsr2/0_acsr2/0_acsr2_wpal
+
+R MATRIX, ohms per m
+0.000661672, 
+0.000138291, 0.000654779, 
+0.000142872, 0.000139313, 0.000663816, 
+
+jX MATRIX, ohms per m
+0.000874001, 
+0.000392488, 0.000882296, 
+0.000370214, 0.000409905, 0.000871444, 
+
+Susceptance (jB) MATRIX, S per m
+2.74709E-009, 
+-6.24252E-010, 2.8019E-009, 
+-4.94751E-010, -7.28875E-010, 2.80837E-009, 
+
+L MATRIX, mH per m
+0.00231836, 
+0.00104111, 0.00234036, 
+0.000982023, 0.00108731, 0.00231158, 
+
+C MATRIX, nF per m
+0.00728689, 
+-0.00165588, 0.00743228, 
+-0.00131237, -0.0019334, 0.00744943, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.00051993 + j 0.000485045 (L1 = 0.00128662 mH) 
+Z0, ohms per m = 0.000940407 + j 0.00165765 (L0 = 0.00439706 mH) 
+
+C1, nF per m = 0.00902341
+C0, nF per m = 0.00412177
+
+Surge Impedance:
+  Positive sequence = 377.607 ohms
+  Zero sequence     = 1032.85 ohms
+  Common Mode       = 344.271 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.8968 
+  Zero sequence     = 78.3532 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-xx4_acsr2_acsr
+
+R MATRIX, ohms per m
+0.00167357, 
+
+jX MATRIX, ohms per m
+0.000893131, 
+
+Susceptance (jB) MATRIX, S per m
+2.34555E-009, 
+
+L MATRIX, mH per m
+0.0023691, 
+
+C MATRIX, nF per m
+0.00622177, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_acsrx4_tpx
+
+R MATRIX, ohms per m
+0.0016773, 
+
+jX MATRIX, ohms per m
+0.000932059, 
+
+Susceptance (jB) MATRIX, S per m
+2.35297E-009, 
+
+L MATRIX, mH per m
+0.00247236, 
+
+C MATRIX, nF per m
+0.00624145, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-4_acsr4_acsr4_acsr4_tpx
+
+R MATRIX, ohms per m
+0.00168634, 
+0.000141153, 0.00167957, 
+0.000145647, 0.000142157, 0.00168844, 
+
+jX MATRIX, ohms per m
+0.00092458, 
+0.000429986, 0.000930171, 
+0.000409508, 0.000447808, 0.000922866, 
+
+Susceptance (jB) MATRIX, S per m
+2.69253E-009, 
+-5.98572E-010, 2.74097E-009, 
+-4.73419E-010, -6.98241E-010, 2.75072E-009, 
+
+L MATRIX, mH per m
+0.00245252, 
+0.00114057, 0.00246736, 
+0.00108625, 0.00118785, 0.00244798, 
+
+C MATRIX, nF per m
+0.00714216, 
+-0.00158776, 0.00727065, 
+-0.00125578, -0.00185214, 0.00729651, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.0015418 + j 0.000496772 (L1 = 0.00131773 mH) 
+Z0, ohms per m = 0.00197076 + j 0.00178407 (L0 = 0.0047324 mH) 
+
+C1, nF per m = 0.00880167
+C0, nF per m = 0.00410598
+
+Surge Impedance:
+  Positive sequence = 386.928 ohms
+  Zero sequence     = 1073.57 ohms
+  Common Mode       = 357.863 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.9453 
+  Zero sequence     = 75.6711 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-4_acsrxx6_wpal
+
+R MATRIX, ohms per m
+0.00166227, 
+
+jX MATRIX, ohms per m
+0.000967202, 
+
+Susceptance (jB) MATRIX, S per m
+2.34475E-009, 
+
+L MATRIX, mH per m
+0.00256558, 
+
+C MATRIX, nF per m
+0.00621965, 
+
+--------------------------------------------------
+Geometry Code = 1ph-xx4_acsr4_tpx
+
+R MATRIX, ohms per m
+0.0016773, 
+
+jX MATRIX, ohms per m
+0.000932059, 
+
+Susceptance (jB) MATRIX, S per m
+2.35297E-009, 
+
+L MATRIX, mH per m
+0.00247236, 
+
+C MATRIX, nF per m
+0.00624145, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-397_acsr397_acsr397_acsr2/0_wpal
+
+R MATRIX, ohms per m
+0.000270019, 
+0.000109951, 0.000264634, 
+0.000113538, 0.000110747, 0.000271698, 
+
+jX MATRIX, ohms per m
+0.000695974, 
+0.00033351, 0.000708729, 
+0.000308271, 0.000350259, 0.000692021, 
+
+Susceptance (jB) MATRIX, S per m
+3.53629E-009, 
+-9.41932E-010, 3.66514E-009, 
+-7.20603E-010, -1.12334E-009, 3.65549E-009, 
+
+L MATRIX, mH per m
+0.00184613, 
+0.000884662, 0.00187996, 
+0.000817713, 0.00092909, 0.00183564, 
+
+C MATRIX, nF per m
+0.00938029, 
+-0.00249855, 0.0097221, 
+-0.00191146, -0.00297975, 0.00969649, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.000157372 + j 0.000368228 (L1 = 0.000976756 mH) 
+Z0, ohms per m = 0.000491608 + j 0.00136027 (L0 = 0.00360822 mH) 
+
+C1, nF per m = 0.0120629
+C0, nF per m = 0.00467312
+
+Surge Impedance:
+  Positive sequence = 284.556 ohms
+  Zero sequence     = 878.705 ohms
+  Common Mode       = 292.791 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.1764 
+  Zero sequence     = 81.2324 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-2/0_acsrxx2_acsr
+
+R MATRIX, ohms per m
+0.000651691, 
+
+jX MATRIX, ohms per m
+0.000881426, 
+
+Susceptance (jB) MATRIX, S per m
+2.387E-009, 
+
+L MATRIX, mH per m
+0.00233806, 
+
+C MATRIX, nF per m
+0.0063317, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-2/0_acsr2/0_acsr2/0_acsr4_acsr
+
+R MATRIX, ohms per m
+0.000661525, 
+0.000138324, 0.000654981, 
+0.000142669, 0.000139294, 0.000663555, 
+
+jX MATRIX, ohms per m
+0.000915595, 
+0.000432623, 0.000921023, 
+0.000412253, 0.000450469, 0.000913932, 
+
+Susceptance (jB) MATRIX, S per m
+2.74746E-009, 
+-6.23983E-010, 2.8021E-009, 
+-4.94364E-010, -7.28596E-010, 2.80877E-009, 
+
+L MATRIX, mH per m
+0.00242869, 
+0.00114757, 0.00244309, 
+0.00109353, 0.00119491, 0.00242428, 
+
+C MATRIX, nF per m
+0.00728787, 
+-0.00165517, 0.00743279, 
+-0.00131134, -0.00193266, 0.00745049, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.000519924 + j 0.000485068 (L1 = 0.00128668 mH) 
+Z0, ohms per m = 0.000940211 + j 0.00178041 (L0 = 0.00472269 mH) 
+
+C1, nF per m = 0.00902344
+C0, nF per m = 0.00412427
+
+Surge Impedance:
+  Positive sequence = 377.615 ohms
+  Zero sequence     = 1070.09 ohms
+  Common Mode       = 356.687 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.8943 
+  Zero sequence     = 75.5807 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-xx4_wpal1/0_tpx
+
+R MATRIX, ohms per m
+0.00153992, 
+
+jX MATRIX, ohms per m
+0.000762621, 
+
+Susceptance (jB) MATRIX, S per m
+2.49339E-009, 
+
+L MATRIX, mH per m
+0.00202292, 
+
+C MATRIX, nF per m
+0.00661393, 
+
+--------------------------------------------------
+Geometry Code = 1ph-xx6_wpal6_wpal
+
+R MATRIX, ohms per m
+0.00250305, 
+
+jX MATRIX, ohms per m
+0.000974922, 
+
+Susceptance (jB) MATRIX, S per m
+2.31821E-009, 
+
+L MATRIX, mH per m
+0.00258606, 
+
+C MATRIX, nF per m
+0.00614925, 
+
+--------------------------------------------------
+Geometry Code = 1ph-x2_acsrx4_tpx
+
+R MATRIX, ohms per m
+0.00112603, 
+
+jX MATRIX, ohms per m
+0.000935293, 
+
+Susceptance (jB) MATRIX, S per m
+2.3417E-009, 
+
+L MATRIX, mH per m
+0.00248094, 
+
+C MATRIX, nF per m
+0.00621156, 
+
+--------------------------------------------------
+Geometry Code = 3ph_h-4_acsr4_acsr4_acsr2_wpal
+
+R MATRIX, ohms per m
+0.00168355, 
+0.000138291, 0.00167665, 
+0.000142872, 0.000139313, 0.00168569, 
+
+jX MATRIX, ohms per m
+0.000885706, 
+0.000392488, 0.000894001, 
+0.000370214, 0.000409905, 0.000883149, 
+
+Susceptance (jB) MATRIX, S per m
+2.6879E-009, 
+-6.01928E-010, 2.73854E-009, 
+-4.78214E-010, -7.01717E-010, 2.74575E-009, 
+
+L MATRIX, mH per m
+0.00234941, 
+0.00104111, 0.00237141, 
+0.000982023, 0.00108731, 0.00234262, 
+
+C MATRIX, nF per m
+0.00712988, 
+-0.00159666, 0.0072642, 
+-0.0012685, -0.00186136, 0.00728334, 
+
+-------------------------------------------------------------------
+-------------------Equiv Symmetrical Component --------------------
+-------------------------------------------------------------------
+
+
+Z1, ohms per m = 0.00154181 + j 0.00049675 (L1 = 0.00131767 mH) 
+Z0, ohms per m = 0.00196228 + j 0.00166936 (L0 = 0.0044281 mH) 
+
+C1, nF per m = 0.00880131
+C0, nF per m = 0.00407479
+
+Surge Impedance:
+  Positive sequence = 386.927 ohms
+  Zero sequence     = 1042.45 ohms
+  Common Mode       = 347.49 ohms
+
+Propagation Velocity (Percent of speed of light):
+  Positive sequence = 97.9495 
+  Zero sequence     = 78.5268 
+
+
+--------------------------------------------------
+Geometry Code = 1ph-x4_acsrx1/0_3w_cs
+
+R MATRIX, ohms per m
+0.00166186, 
+
+jX MATRIX, ohms per m
+0.000844051, 
+
+Susceptance (jB) MATRIX, S per m
+2.36093E-009, 
+
+L MATRIX, mH per m
+0.00223891, 
+
+C MATRIX, nF per m
+0.00626257, 
+
+--------------------------------------------------
+Geometry Code = 1ph-xx2_acsr4_dpx
+
+R MATRIX, ohms per m
+0.00112603, 
+
+jX MATRIX, ohms per m
+0.000935293, 
+
+Susceptance (jB) MATRIX, S per m
+2.3417E-009, 
+
+L MATRIX, mH per m
+0.00248094, 
+
+C MATRIX, nF per m
+0.00621156, 
