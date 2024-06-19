@@ -12,7 +12,10 @@ SWING_FREE = "IN"
 PQ_FREE = "OUT"
 SWING_BUS = "SWING"
 PQ_BUS = "PQ"
-
+# generator mode options
+CONSTANT_PQ = "CONSTANT_PQ"
+CONSTANT_P = "CONSTANT_P"
+CONSTANT_Q = "CONSTANT_Q"
 
 def get(s: pd.Series, i, default=None):
     """
@@ -55,8 +58,14 @@ def _handle_gen_input(gen_data: pd.DataFrame) -> pd.DataFrame:
                 "qa_min",
                 "qb_min",
                 "qc_min",
+                "a_mode",
+                "b_mode",
+                "c_mode",
             ]
         )
+    for ph in "abc":
+        if f"{ph}_mode" not in gen_data.columns:
+            gen_data[f"{ph}_mode"] = 0
     gen = gen_data.sort_values(by="id", ignore_index=True)
     gen.index = gen.id.to_numpy() - 1
     return gen
@@ -102,11 +111,12 @@ def _handle_reg_input(reg_data: pd.DataFrame) -> pd.DataFrame:
         elif f"ratio_{ph}" in reg.columns and not f"tap_{ph}" in reg.columns:
             reg[f"tap_{ph}"] = (reg[f"ratio_{ph}"] - 1) / 0.00625
         elif f"ratio_{ph}" in reg.columns and f"tap_{ph}" in reg.columns:
+            reg[f"ratio_{ph}"] = 1 + 0.00625 * reg[f"tap_{ph}"]
             # check consistency
-            if any(abs(reg[f"ratio_{ph}"]) - (1 + 0.00625 * reg[f"tap_{ph}"]) > 1e-6):
-                raise ValueError(
-                    f"Regulator taps and ratio are inconsistent on phase {ph}!"
-                )
+            # if any(abs(reg[f"ratio_{ph}"]) - (1 + 0.00625 * reg[f"tap_{ph}"]) > 1e-6):
+            #     raise ValueError(
+            #         f"Regulator taps and ratio are inconsistent on phase {ph}!"
+            #     )
     return reg
 
 
@@ -163,41 +173,38 @@ class LinDistModel:
         # ~~~~~~~~~~~~~~~~~~~~ prepare data ~~~~~~~~~~~~~~~~~~~~
         self.nb = len(self.bus.id)
         self.r, self.x = self._init_rx(self.branch)
-        self.der_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
-        self.cap_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
+        self.gen_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
         if self.gen.shape[0] > 0:
-            self.der_buses = {
+            self.gen_buses = {
                 "a": self.gen.loc[self.gen.phases.str.contains("a")].index.to_numpy(),
                 "b": self.gen.loc[self.gen.phases.str.contains("b")].index.to_numpy(),
                 "c": self.gen.loc[self.gen.phases.str.contains("c")].index.to_numpy(),
             }
+        self.cap_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
         if self.cap.shape[0] > 0:
             self.cap_buses = {
                 "a": self.cap.loc[self.cap.phases.str.contains("a")].index.to_numpy(),
                 "b": self.cap.loc[self.cap.phases.str.contains("b")].index.to_numpy(),
                 "c": self.cap.loc[self.cap.phases.str.contains("c")].index.to_numpy(),
             }
+            nc_a = len(self.cap_buses["a"])
+            nc_b = len(self.cap_buses["b"])
+            nc_c = len(self.cap_buses["c"])
+            self.n_u = nc_a + nc_b + nc_c
         self.load_buses = {
-            "a": self.bus.loc[self.bus.bus_type.str.contains(PQ_BUS)].index.to_numpy(),
-            "b": self.bus.loc[self.bus.bus_type.str.contains(PQ_BUS)].index.to_numpy(),
-            "c": self.bus.loc[self.bus.bus_type.str.contains(PQ_BUS)].index.to_numpy(),
-        }
-        self.controlled_load_buses = {
-            "a": self.bus.loc[self.bus.bus_type.str.contains(PQ_FREE)].index.to_numpy(),
-            "b": self.bus.loc[self.bus.bus_type.str.contains(PQ_FREE)].index.to_numpy(),
-            "c": self.bus.loc[self.bus.bus_type.str.contains(PQ_FREE)].index.to_numpy(),
+            "a": self.bus.loc[self.bus.phases.str.contains("a")].index.to_numpy(),
+            "b": self.bus.loc[self.bus.phases.str.contains("b")].index.to_numpy(),
+            "c": self.bus.loc[self.bus.phases.str.contains("c")].index.to_numpy(),
         }
         # ~~ initialize index pointers ~~
-        self.x_maps, self.ctr_var_start_idx = self._variable_tables(self.branch)
-        (
-            self.pg_start_phase_idxs,
-            self.qg_start_phase_idxs,
-            self.p_load_start_phase_idxs,
-            self.q_load_start_phase_idxs,
-            self.cap_start_phase_idxs,
-            self.z_c_start_phase_idxs,
-            self.n_x,
-        ) = self._control_variables(self.ctr_var_start_idx)
+        self.x_maps, self.n_x = self._variable_tables(self.branch)
+        self.pg_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
+        self.qg_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
+        self.pl_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.load_buses)
+        self.ql_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.load_buses)
+        self.qc_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
+        self.zc_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
+        self.uc_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
 
         # ~~~~~~~~~~~~~~~~~~~~ initialize Aeq and beq ~~~~~~~~~~~~~~~~~~~~
         self.a_eq, self.b_eq = self.create_model()
@@ -317,64 +324,24 @@ class LinDistModel:
                 df_c.loc[df_c.loc[:, "bi"] == i, "vi"] = df_c.loc[
                     df_c.bj == i, "vj"
                 ].values[0]
-        ctr_var_start_idx = v_c_end  # start with the largest index so far
+        n_x = v_c_end  # start with the largest index so far
 
         x_maps = {"a": df_a, "b": df_b, "c": df_c}
-        return x_maps, ctr_var_start_idx
+        return x_maps, n_x
 
-    def _control_variables(self, ctr_var_start_idx):
-        ctr_var_start_idx = int(ctr_var_start_idx)
-        ng_a = len(self.der_buses["a"])
-        ng_b = len(self.der_buses["b"])
-        ng_c = len(self.der_buses["c"])
-        nc_a = len(self.cap_buses["a"])
-        nc_b = len(self.cap_buses["b"])
-        nc_c = len(self.cap_buses["c"])
-        pg_start_phase_idxs = {
-            "a": ctr_var_start_idx,
-            "b": ctr_var_start_idx + ng_a,
-            "c": ctr_var_start_idx + ng_a + ng_b,
+
+    @staticmethod
+    def _add_device_variables(n_x: int, device_buses: dict):
+        n_a = len(device_buses["a"])
+        n_b = len(device_buses["b"])
+        n_c = len(device_buses["c"])
+        start_phase_idxs = {
+            "a": n_x,
+            "b": n_x + n_a,
+            "c": n_x + n_a + n_b,
         }
-        qg_start_idx = ctr_var_start_idx + ng_a + ng_b + ng_c
-        qg_start_phase_idxs = {
-            "a": qg_start_idx,
-            "b": qg_start_idx + ng_a,
-            "c": qg_start_idx + ng_a + ng_b,
-        }
-        load_start_idx = qg_start_idx + ng_a + ng_b + ng_c
-        n_controlled_load_nodes = sum(self.bus.bus_type == PQ_FREE)
-        n_load_nodes = sum(self.bus.bus_type == PQ_BUS)
-        p_load_start_phase_idxs = {
-            "a": load_start_idx,
-            "b": load_start_idx + n_load_nodes,
-            "c": load_start_idx + n_load_nodes * 2,
-        }
-        q_load_start_phase_idxs = {
-            "a": load_start_idx + n_load_nodes * 3,
-            "b": load_start_idx + n_load_nodes * 4,
-            "c": load_start_idx + n_load_nodes * 5,
-        }
-        cap_start_idx = load_start_idx + n_load_nodes * 6
-        cap_start_phase_idxs = {
-            "a": cap_start_idx,
-            "b": cap_start_idx + nc_a,
-            "c": cap_start_idx + nc_a + nc_b,
-        }
-        z_c_start_idx = cap_start_idx + nc_a + nc_b + nc_c
-        z_c_start_phase_idxs = {
-            "a": z_c_start_idx,
-            "b": z_c_start_idx + nc_a,
-            "c": z_c_start_idx + nc_a + nc_b,
-        }
-        n_x = load_start_idx + z_c_start_idx + nc_a + nc_b + nc_c
-        return (pg_start_phase_idxs,
-                qg_start_phase_idxs,
-                p_load_start_phase_idxs,
-                q_load_start_phase_idxs,
-                cap_start_phase_idxs,
-                z_c_start_phase_idxs,
-                n_x
-                )
+        n_x = n_x + n_a + n_b + n_c
+        return start_phase_idxs, n_x
 
     def init_bounds(self, bus, gen):
         default = 100e3  # Default for unbounded variables.
@@ -403,9 +370,9 @@ class LinDistModel:
                 x_lim_upper[x_maps[a].loc[:, "vj"]] = (
                     bus.loc[x_maps[a].loc[:, "bj"], "v_max"] ** 2
                 )
-                for idx, j in enumerate(self.der_buses[a]):
-                    i_p = self.pg_start_phase_idxs[a] + idx
-                    i_q = self.qg_start_phase_idxs[a] + idx
+                for j in self.gen_buses[a]:
+                    i_p = self.idx("pg", j, a)
+                    i_q = self.idx("qg", j, a)
                     q_max_manual = gen[f"q{a}_max"][j]
                     q_min_manual = gen[f"q{a}_min"][j]
                     s_rated: pd.Series = gen[f"s{a}_max"]
@@ -434,51 +401,55 @@ class LinDistModel:
         if var == "q_cap":  # active power generation at node
             if node_j in set(self.cap_buses[phase]):
                 return (
-                    self.cap_start_phase_idxs[phase]
+                    self.qc_start_phase_idxs[phase]
                     + np.where(self.cap_buses[phase] == node_j)[0]
                 )
             return []
         if var == "z_c":
             if node_j in set(self.cap_buses[phase]):
                 return (
-                    self.z_c_start_phase_idxs[phase]
+                    self.zc_start_phase_idxs[phase]
                     + np.where(self.cap_buses[phase] == node_j)[0]
                 )
             return []
         if var == "u_c":
             if node_j in set(self.cap_buses[phase]):
                 return (
-                    self.z_c_start_phase_idxs[phase]
+                    self.uc_start_phase_idxs[phase]
                     + np.where(self.cap_buses[phase] == node_j)[0]
                 )
             return []
-
         if var == "pg":  # active power generation at node
-            if node_j in set(self.der_buses[phase]):
+            if node_j in set(self.gen_buses[phase]):
                 return (
                     self.pg_start_phase_idxs[phase]
-                    + np.where(self.der_buses[phase] == node_j)[0]
+                    + np.where(self.gen_buses[phase] == node_j)[0]
                 )
             return []
         if var == "qg":  # reactive power generation at node
-            if node_j in set(self.der_buses[phase]):
+            if node_j in set(self.gen_buses[phase]):
                 return (
                     self.qg_start_phase_idxs[phase]
-                    + np.where(self.der_buses[phase] == node_j)[0]
+                    + np.where(self.gen_buses[phase] == node_j)[0]
                 )
             return []
-        if var == "pl":  # active power exported at node (not root node)
+        if var == "pl":  # active power load at node
             if node_j in set(self.load_buses[phase]):
                 return (
-                    self.p_load_start_phase_idxs[phase]
+                    self.pl_start_phase_idxs[phase]
                     + np.where(self.load_buses[phase] == node_j)[0]
                 )
-        if var == "ql":  # reactive power exported at node (not root node)
+        if var == "ql":  # reactive power load at node
             if node_j in set(self.load_buses[phase]):
                 return (
-                    self.q_load_start_phase_idxs[phase]
+                    self.ql_start_phase_idxs[phase]
                     + np.where(self.load_buses[phase] == node_j)[0]
                 )
+        if var in ["pjk"]:  # indexes of all branch active power out of node j
+            return self.branches_out_of_j("pij", node_j, phase)
+        if var in ["qjk"]:  # indexes of all branch reactive power out of node j
+            return self.branches_out_of_j("qij", node_j, phase)
+        # self.user_added_idx(var, node_j, phase)
         return self.branch_into_j(var, node_j, phase)
 
     @cache
@@ -493,135 +464,152 @@ class LinDistModel:
 
         # ########## Aeq and Beq Formation ###########
         n_rows = self.n_x
-        n_col = self.n_x
-        a_eq = zeros(
-            (n_rows, n_col)
-        )  # Aeq has the same number of rows as equations with a column for each x
+        n_cols = self.n_x
+        # Aeq has the same number of rows as equations with a column for each x
+        a_eq = zeros((n_rows, n_cols))
         b_eq = zeros(n_rows)
         for j in range(1, self.nb):
-
-            def col(var, phase):
-                return self.idx(var, j, phase)
-
-            def row(var, phase):
-                return self.idx(var, j, phase)
-
-            def children(var, phase):
-                return self.branches_out_of_j(var, j, phase)
-
             for ph in ["abc", "bca", "cab"]:
                 a, b, c = ph[0], ph[1], ph[2]
                 aa = "".join(sorted(a + a))
-                ab = "".join(
-                    sorted(a + b)
-                )  # if ph=='cab', then a+b=='ca'. Sort so ab=='ac'
+                # if ph=='cab', then a+b=='ca'. Sort so ab=='ac'
+                ab = "".join(sorted(a + b))
                 ac = "".join(sorted(a + c))
                 if not self.phase_exists(a, j):
                     continue
-                p_load_nom, q_load_nom = 0, 0
                 reg_ratio = 1
-                q_cap_nom = 0
-                if bus.bus_type[j] == "PQ":
-                    p_load_nom = self.bus[f"pl_{a}"][j]
-                    q_load_nom = self.bus[f"ql_{a}"][j]
-                p_gen_nom = get(self.gen[f"p{a}"], j, 0)
-                q_gen_nom = get(self.gen[f"q{a}"], j, 0)
-                if self.cap is not None:
-                    q_cap_nom = get(self.cap[f"q{a}"], j, 0)
                 if self.reg is not None:
                     reg_ratio = get(self.reg[f"ratio_{a}"], j, 1)
                 # equation indexes
-                p_eqn = row("pij", a)
-                q_eqn = row("qij", a)
-                v_eqn = row("vj", a)
-                pl_eqn = row("pl", a)
-                ql_eqn = row("ql", a)
-                pg_eqn = row("pg", a)
-                qg_eqn = row("qg", a)
-                qc_eqn = row("q_cap", a)
+                pij = self.idx("pij", j,  a)
+                qij = self.idx("qij", j,  a)
+                pijb = self.idx("pij", j,  b)
+                qijb = self.idx("qij", j,  b)
+                pijc = self.idx("pij", j,  c)
+                qijc = self.idx("qij", j,  c)
+                pjk = self.idx("pjk", j, a)
+                qjk = self.idx("qjk", j, a)
+                vi = self.idx("vi", j, a)
+                vj = self.idx("vj", j, a)
+                pl = self.idx("pl", j, a)
+                ql = self.idx("ql", j, a)
+                pg = self.idx("pg", j, a)
+                qg = self.idx("qg", j, a)
+                qc = self.idx("q_cap", j, a)
                 # Set P equation variable coefficients in a_eq
-                a_eq[p_eqn, col("pij", a)] = 1
-                a_eq[p_eqn, children("pij", a)] = -1
-                a_eq[p_eqn, col("pl", a)] = -1
-                a_eq[p_eqn, col("pg", a)] = 1
+                a_eq[pij, pij] = 1
+                a_eq[pij, pjk] = -1
+                a_eq[pij, pl] = -1
+                a_eq[pij, pg] = 1
                 # Set Q equation variable coefficients in a_eq
-                a_eq[q_eqn, col("qij", a)] = 1
-                a_eq[q_eqn, children("qij", a)] = -1
-                a_eq[q_eqn, col("ql", a)] = -1
-                a_eq[q_eqn, col("qg", a)] = 1
-                a_eq[q_eqn, col("q_cap", a)] = 1
+                a_eq[qij, qij] = 1
+                a_eq[qij, qjk] = -1
+                a_eq[qij, ql] = -1
+                a_eq[qij, qg] = 1
+                a_eq[qij, qc] = 1
                 # Set V equation variable coefficients in a_eq and constants in b_eq
-                i = self.idx("bi", j, a)[0]
-                if bus.bus_type[i] == "SWING":  # Swing bus
-                    a_eq[row("vi", a), col("vi", a)] = 1
-                    b_eq[row("vi", a)] = (
-                        bus.loc[bus.bus_type == "SWING", f"v_{a}"][0] ** 2
-                    )
-                a_eq[v_eqn, col("vj", a)] = 1
-                a_eq[v_eqn, col("vi", a)] = -1 * reg_ratio**2
-                a_eq[v_eqn, col("pij", a)] = 2 * r[aa][i, j]
-                a_eq[v_eqn, col("qij", a)] = 2 * x[aa][i, j]
+                i = self.idx("bi", j, a)[0]  # get the upstream node, i, on branch from i to j
+                if bus.bus_type[i] == SWING_BUS:  # Swing bus
+                    a_eq[vi, vi] = 1
+                    b_eq[vi] = bus.at[i, f"v_{a}"] ** 2
+                a_eq[vj, vj] = 1
+                a_eq[vj, vi] = -1 * reg_ratio**2
+                a_eq[vj, pij] = 2 * r[aa][i, j]
+                a_eq[vj, qij] = 2 * x[aa][i, j]
                 if self.phase_exists(b, j):
-                    a_eq[v_eqn, col("pij", b)] = -r[ab][i, j] + sqrt(3) * x[ab][i, j]
-                    a_eq[v_eqn, col("qij", b)] = -x[ab][i, j] - sqrt(3) * r[ab][i, j]
+                    a_eq[vj, pijb] = -r[ab][i, j] + sqrt(3) * x[ab][i, j]
+                    a_eq[vj, qijb] = -x[ab][i, j] - sqrt(3) * r[ab][i, j]
                 if self.phase_exists(c, j):
-                    a_eq[v_eqn, col("pij", c)] = -r[ac][i, j] - sqrt(3) * x[ac][i, j]
-                    a_eq[v_eqn, col("qij", c)] = -x[ac][i, j] + sqrt(3) * r[ac][i, j]
-
-                # boundary p and q
-                if bus.bus_type[j] != PQ_FREE:
-                    # Set Load equation variable coefficients in a_eq
-                    a_eq[pl_eqn, col("pl", a)] = 1
-                    a_eq[pl_eqn, col("vj", a)] = -(bus.cvr_p[j] / 2) * p_load_nom
-                    b_eq[pl_eqn] = (1 - (bus.cvr_p[j] / 2)) * p_load_nom
-                    a_eq[ql_eqn, col("ql", a)] = 1
-                    a_eq[ql_eqn, col("vj", a)] = -(bus.cvr_q[j] / 2) * q_load_nom
-                    b_eq[ql_eqn] = (1 - (bus.cvr_q[j] / 2)) * q_load_nom
-                # Set Generator equation variable coefficients in a_eq
-                if get(self.gen[f"{a}_mode"], j, 0) in [0, 1]:
-                    a_eq[pg_eqn, col("pg", a)] = 1
-                    b_eq[pg_eqn] = p_gen_nom
-                if get(self.gen[f"{a}_mode"], j, 0) in [0, 2]:
-                    a_eq[qg_eqn, col("qg", a)] = 1
-                    b_eq[qg_eqn] = q_gen_nom
-                # Set Capacitor equation variable coefficients in a_eq
-                a_eq[qc_eqn, col("q_cap", a)] = 1
-                a_eq[qc_eqn, col("vj", a)] = -q_cap_nom
-
+                    a_eq[vj, pijc] = -r[ac][i, j] - sqrt(3) * x[ac][i, j]
+                    a_eq[vj, qijc] = -x[ac][i, j] + sqrt(3) * r[ac][i, j]
+                a_eq, b_eq = self.add_load_model(a_eq, b_eq, j, a)
+                a_eq, b_eq = self.add_generator_model(a_eq, b_eq, j, a)
+                a_eq, b_eq = self.add_capacitor_model(a_eq, b_eq, j, a)
         return a_eq, b_eq
 
-    def get_decision_variables(self, x):
-        ng_a = len(self.der_buses["a"])
-        ng_b = len(self.der_buses["b"])
-        ng_c = len(self.der_buses["c"])
-        ng = dict(a=ng_a, b=ng_b, c=ng_c)
-        i_p = self.pg_start_phase_idxs
-        i_q = self.pg_start_phase_idxs
-        decision_variables = pd.DataFrame(columns=["name", "a", "b", "c"])
-        if self.gen_data.shape[0] == 1 and self.gen_data.index[0] == -1:
-            return decision_variables
+
+    def add_generator_model(self, a_eq, b_eq, j, phase):
+        a = phase
+        p_gen_nom, q_gen_nom = 0, 0
+        if self.gen is not None:
+            p_gen_nom = get(self.gen[f"p{a}"], j, 0)
+            q_gen_nom = get(self.gen[f"q{a}"], j, 0)
+        # equation indexes
+        pg = self.idx("pg", j, a)
+        qg = self.idx("qg", j, a)
+        # Set Generator equation variable coefficients in a_eq
+        if get(self.gen[f"{a}_mode"], j, 0) in [CONSTANT_PQ, CONSTANT_P]:
+            a_eq[pg, pg] = 1
+            b_eq[pg] = p_gen_nom
+        if get(self.gen[f"{a}_mode"], j, 0) in [CONSTANT_PQ, CONSTANT_Q]:
+            a_eq[qg, qg] = 1
+            b_eq[qg] = q_gen_nom
+        return a_eq, b_eq
+
+    def add_load_model(self, a_eq, b_eq, j, phase):
+        a = phase
+        p_load_nom, q_load_nom = 0, 0
+        if self.bus.bus_type[j] == PQ_BUS:
+            p_load_nom = self.bus[f"pl_{a}"][j]
+            q_load_nom = self.bus[f"ql_{a}"][j]
+        # equation indexes
+        pl = self.idx("pl", j, a)
+        ql = self.idx("ql", j, a)
+        vj = self.idx("vj", j, a)
+        # boundary p and q
+        if self.bus.bus_type[j] != PQ_FREE:
+            # Set Load equation variable coefficients in a_eq
+            a_eq[pl, pl] = 1
+            a_eq[pl, vj] = -(self.bus.cvr_p[j] / 2) * p_load_nom
+            b_eq[pl] = (1 - (self.bus.cvr_p[j] / 2)) * p_load_nom
+            a_eq[ql, ql] = 1
+            a_eq[ql, vj] = -(self.bus.cvr_q[j] / 2) * q_load_nom
+            b_eq[ql] = (1 - (self.bus.cvr_q[j] / 2)) * q_load_nom
+        return a_eq, b_eq
+
+    def add_capacitor_model(self, a_eq, b_eq, j, phase):
+        q_cap_nom = 0
+        if self.cap is not None:
+            q_cap_nom = get(self.cap[f"q{phase}"], j, 0)
+        # equation indexes
+        vj = self.idx("vj", j, phase)
+        qc = self.idx("q_cap", j, phase)
+        a_eq[qc, qc] = 1
+        a_eq[qc, vj] = -q_cap_nom
+        return a_eq, b_eq
+
+
+    def parse_results(self, x, variable_name: str):
+        values = pd.DataFrame(columns=["name", "a", "b", "c"])
         for ph in "abc":
-            for i_gen in range(ng[ph]):
-                i = self.der_buses[ph][i_gen]
-                decision_variables.at[i + 1, "name"] = self.bus.at[i, "name"]
-                decision_variables.at[i + 1, ph] = [i_q[ph] + i_gen]
+            for j in self.load_buses[ph]:
+                values.at[j + 1, "name"] = self.bus.at[j, "name"]
+                values.at[j + 1, ph] = x[self.idx(variable_name, j, ph)]
+        return values
+
+    def get_decision_variables(self, x):
+        decision_variables = pd.DataFrame(columns=["name", "a", "b", "c"])
+        for ph in "abc":
+            for j in self.gen_buses[ph]:
+                decision_variables.at[j + 1, "name"] = self.bus.at[j, "name"]
+                decision_variables.at[j + 1, ph] = x[self.idx("qg", j, ph)]
         return decision_variables
 
-    def get_gens(self, x):
-        ng_a = len(self.der_buses["a"])
-        ng_b = len(self.der_buses["b"])
-        ng_c = len(self.der_buses["c"])
-        ng = dict(a=ng_a, b=ng_b, c=ng_c)
-        i_p = self.pg_start_phase_idxs
-        i_q = self.pg_start_phase_idxs
+
+    def get_p_gens(self, x):
         decision_variables = pd.DataFrame(columns=["name", "a", "b", "c"])
-        if self.gen_data.shape[0] == 1 and self.gen_data.index[0] == -1:
-            return decision_variables
         for ph in "abc":
-            for i_gen in range(ng[ph]):
-                i = self.der_buses[ph][i_gen]
-                decision_variables.at[i + 1, "name"] = self.bus.at[i, "name"]
-                decision_variables.at[i + 1, ph] = x[i_p[ph] + i_gen] + 1j*[i_q[ph] + i_gen]
+            for j in self.gen_buses[ph]:
+                decision_variables.at[j + 1, "name"] = self.bus.at[j, "name"]
+                decision_variables.at[j + 1, ph] = x[self.idx("pg", j, ph)]
+        return decision_variables
+
+    def get_q_gens(self, x):
+        decision_variables = pd.DataFrame(columns=["name", "a", "b", "c"])
+        for ph in "abc":
+            for j in self.gen_buses[ph]:
+                decision_variables.at[j + 1, "name"] = self.bus.at[j, "name"]
+                decision_variables.at[j + 1, ph] = x[self.idx("qg", j, ph)]
         return decision_variables
 
     def get_voltages(self, x):
