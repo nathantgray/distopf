@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
 from scipy.sparse import csr_matrix
-from distopf.lindist_base_modular import LinDistModel, get
+from distopf.lindist_base_modular import LinDistModelModular, get
 
 
 # bus_type options
@@ -15,7 +15,7 @@ SWING_BUS = "SWING"
 PQ_BUS = "PQ"
 
 
-class LinDistModelMI(LinDistModel):
+class LinDistModelMI(LinDistModelModular):
     """
     LinDistFlow Model with DER Reactive Power Injection as control variables.
 
@@ -45,18 +45,38 @@ class LinDistModelMI(LinDistModel):
         super().__init__(
             branch_data, bus_data, gen_data, cap_data=cap_data, reg_data=reg_data
         )
+        self.zc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
+        self.uc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
         self.a_ineq, self.b_ineq = self.create_inequality_constraints()
 
+    def user_added_idx(self, var, node_j, phase):
+        """
+        User added index function. Override this function to add custom variables. Return None if `var` is not found.
+        Parameters
+        ----------
+        var : name of variable
+        node_j : node index (0 based; bus.id - 1)
+        phase : "a", "b", or "c"
+
+        Returns
+        -------
+        ix : index or list of indices of variable within x-vector or None if `var` is not found.
+        """
+        if var in ["zc"]:
+            return self.zc_map[phase].get(node_j, [])
+        if var in ["uc"]:
+            return self.uc_map[phase].get(node_j, [])
+        return None
 
     def add_capacitor_model(self, a_eq, b_eq, j, phase):
         q_cap_nom = 0
         if self.cap is not None:
             q_cap_nom = get(self.cap[f"q{phase}"], j, 0)
         # equation indexes
-        vj = self.idx("vj", j, phase)
+        zc = self.idx("zc", j, phase)
         qc = self.idx("q_cap", j, phase)
         a_eq[qc, qc] = 1
-        a_eq[qc, self.idx("z_c", j, phase)] = -q_cap_nom
+        a_eq[qc, zc] = -q_cap_nom
         return a_eq, b_eq
 
     def create_inequality_constraints(self):
@@ -78,15 +98,15 @@ class LinDistModelMI(LinDistModel):
                     continue
                 # equation indexes
                 v_max = get(self.bus["v_max"], j) ** 2
-                a_ineq[ineq1, self.idx("z_c", j, a)] = 1
-                a_ineq[ineq1, self.idx("u_c", j, a)] = -v_max
-                a_ineq[ineq2, self.idx("z_c", j, a)] = 1
-                a_ineq[ineq2, self.idx("vj", j, a)] = -1
-                a_ineq[ineq3, self.idx("z_c", j, a)] = -1
-                a_ineq[ineq3, self.idx("vj", j, a)] = +1
-                a_ineq[ineq3, self.idx("u_c", j, a)] = v_max
+                a_ineq[ineq1, self.idx("zc", j, a)] = 1
+                a_ineq[ineq1, self.idx("uc", j, a)] = -v_max
+                a_ineq[ineq2, self.idx("zc", j, a)] = 1
+                a_ineq[ineq2, self.idx("v", j, a)] = -1
+                a_ineq[ineq3, self.idx("zc", j, a)] = -1
+                a_ineq[ineq3, self.idx("v", j, a)] = +1
+                a_ineq[ineq3, self.idx("uc", j, a)] = v_max
                 b_ineq[ineq3] = v_max
-                a_ineq[ineq4, self.idx("z_c", j, a)] = -1
+                a_ineq[ineq4, self.idx("zc", j, a)] = -1
                 ineq1 += 4
                 ineq2 += 4
                 ineq3 += 4
@@ -94,51 +114,8 @@ class LinDistModelMI(LinDistModel):
 
         return a_ineq, b_ineq
 
+    def get_zc(self, x):
+        return self.get_device_variables(x, self.zc_map)
 
-    def get_cap_statuses(self, x):
-        nc_a = len(self.cap_buses["a"])
-        nc_b = len(self.cap_buses["b"])
-        nc_c = len(self.cap_buses["c"])
-        nc = dict(a=nc_a, b=nc_b, c=nc_c)
-        i_start = self.uc_start_phase_idxs
-        cap_statuses = pd.DataFrame(columns=["name", "a", "b", "c"])
-        if self.cap_data.shape[0] == 1 and self.cap_data.index[0] == -1:
-            return cap_statuses
-        for ph in "abc":
-            for i_cap in range(nc[ph]):
-                i = self.cap_buses[ph][i_cap]
-                cap_statuses.at[i + 1, "name"] = self.bus.at[i, "name"]
-                cap_statuses.at[i + 1, ph] = x[i_start[ph] + i_cap]
-        return cap_statuses
-
-    def get_cap_q(self, x):
-        nc_a = len(self.cap_buses["a"])
-        nc_b = len(self.cap_buses["b"])
-        nc_c = len(self.cap_buses["c"])
-        nc = dict(a=nc_a, b=nc_b, c=nc_c)
-        i_start = self.qc_start_phase_idxs
-        cap_q = pd.DataFrame(columns=["name", "a", "b", "c"])
-        if self.cap_data.shape[0] == 1 and self.cap_data.index[0] == -1:
-            return cap_q
-        for ph in "abc":
-            for i_cap in range(nc[ph]):
-                i = self.cap_buses[ph][i_cap]
-                cap_q.at[i + 1, "name"] = self.bus.at[i, "name"]
-                cap_q.at[i + 1, ph] = x[i_start[ph] + i_cap]
-        return cap_q
-    
-    def get_z_c(self, x):
-        nc_a = len(self.cap_buses["a"])
-        nc_b = len(self.cap_buses["b"])
-        nc_c = len(self.cap_buses["c"])
-        nc = dict(a=nc_a, b=nc_b, c=nc_c)
-        i_start = self.zc_start_phase_idxs
-        z_c = pd.DataFrame(columns=["name", "a", "b", "c"])
-        if self.cap_data.shape[0] == 1 and self.cap_data.index[0] == -1:
-            return z_c
-        for ph in "abc":
-            for i_zc in range(nc[ph]):
-                i = self.cap_buses[ph][i_zc]
-                z_c.at[i + 1, "name"] = self.bus.at[i, "name"]
-                z_c.at[i + 1, ph] = x[i_start[ph] + i_zc]
-        return z_c
+    def get_uc(self, x):
+        return self.get_device_variables(x, self.uc_map)

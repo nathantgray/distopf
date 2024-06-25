@@ -1,9 +1,12 @@
 # fmt: off
 from distopf.dssconverter.dssparser import DSSParser
 from distopf.lindist_base import LinDistModel
+from distopf.lindist_base_modular import LinDistModelModular
 from distopf.lindist_p import LinDistModelP
 from distopf.lindist_q import LinDistModelQ
+from distopf.lindist_mi import LinDistModelMI
 from distopf.opf_solver import (
+    cvxpy_mi_solve,
     cvxpy_solve,
     lp_solve,
     cvxopt_solve_lp,

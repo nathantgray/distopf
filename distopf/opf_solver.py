@@ -6,7 +6,7 @@ import numpy as np
 from scipy.optimize import OptimizeResult, linprog
 from scipy.sparse import csr_array
 
-from distopf import LinDistModelQ, LinDistModelP, LinDistModel
+from distopf import LinDistModelQ, LinDistModelP, LinDistModel, LinDistModelModular, LinDistModelMI
 
 
 def gradient_load_min(model: LinDistModel) -> np.ndarray:
@@ -116,7 +116,7 @@ def cp_obj_target_p_3ph(
 
 
 def cp_obj_target_p_total(
-    model: LinDistModel, xk: cp.Variable, **kwargs
+    model: LinDistModel | LinDistModelModular, xk: cp.Variable, **kwargs
 ) -> cp.Expression:
     """
 
@@ -274,7 +274,7 @@ def cvxpy_solve(
             raise ValueError(lin_res.message)
         x0 = lin_res.x.copy()
     x = cp.Variable(shape=(m.n_x,), name="x", value=x0)
-    g = [csr_array(m.a_eq) @ x - m.b_eq.flatten() == 0]
+    g = [m.a_eq @ x - m.b_eq.flatten() == 0]
     lb = [x[i] >= m.bounds[i][0] for i in range(m.n_x)]
     ub = [x[i] <= m.bounds[i][1] for i in range(m.n_x)]
     error_percent = kwargs.get("error_percent", np.zeros(3))
@@ -294,8 +294,9 @@ def cvxpy_solve(
     )
     return result
 
+
 def cvxpy_mi_solve(
-    model: LinDistModel,
+    model: LinDistModelMI,
     obj_func: Callable,
     **kwargs,
 ) -> OptimizeResult:
@@ -322,8 +323,10 @@ def cvxpy_mi_solve(
             raise ValueError(lin_res.message)
         x0 = lin_res.x.copy()
     x = cp.Variable(shape=(m.n_x,), name="x", value=x0)
-    u_c = cp.Variable(shape=(m.n_u,), name="u_c", value=np.ones(m.n_u), boolean=True)
-    gu = [x[m.uc_start_phase_idxs["a"]:m.uc_start_phase_idxs["a"]+m.n_u] == u_c]
+    n_u = len(m.cap_buses["a"]) + len(m.cap_buses["b"]) + len(m.cap_buses["c"])
+    u_c = cp.Variable(shape=(n_u,), name="u_c", value=np.ones(n_u), boolean=True)
+    u_idxs = np.r_[m.uc_map["a"], m.uc_map["b"], m.uc_map["c"]]
+    gu = [x[u_idxs] == u_c]
     g_ineq = [csr_array(m.a_ineq) @ x - m.b_ineq.flatten() <= 0]
     g = [csr_array(m.a_eq) @ x - m.b_eq.flatten() == 0]
     lb = [x[i] >= m.bounds[i][0] for i in range(m.n_x)]

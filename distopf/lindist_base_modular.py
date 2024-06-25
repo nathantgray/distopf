@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_array, coo_array, dok_array, lil_array
 
 
 # bus_type options
@@ -136,7 +136,7 @@ def _handle_bus_input(bus_data: pd.DataFrame) -> pd.DataFrame:
     return bus
 
 
-class LinDistModel:
+class LinDistModelModular:
     """
     LinDistFlow Model base class.
 
@@ -173,6 +173,11 @@ class LinDistModel:
         # ~~~~~~~~~~~~~~~~~~~~ prepare data ~~~~~~~~~~~~~~~~~~~~
         self.nb = len(self.bus.id)
         self.r, self.x = self._init_rx(self.branch)
+        self.all_buses = {
+            "a": self.bus.loc[self.bus.phases.str.contains("a")].index.to_numpy(),
+            "b": self.bus.loc[self.bus.phases.str.contains("b")].index.to_numpy(),
+            "c": self.bus.loc[self.bus.phases.str.contains("c")].index.to_numpy(),
+        }
         self.gen_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
         if self.gen.shape[0] > 0:
             self.gen_buses = {
@@ -180,6 +185,7 @@ class LinDistModel:
                 "b": self.gen.loc[self.gen.phases.str.contains("b")].index.to_numpy(),
                 "c": self.gen.loc[self.gen.phases.str.contains("c")].index.to_numpy(),
             }
+            self.n_gens = len(self.gen_buses["a"]) + len(self.gen_buses["b"]) + len(self.gen_buses["c"])
         self.cap_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
         if self.cap.shape[0] > 0:
             self.cap_buses = {
@@ -187,270 +193,205 @@ class LinDistModel:
                 "b": self.cap.loc[self.cap.phases.str.contains("b")].index.to_numpy(),
                 "c": self.cap.loc[self.cap.phases.str.contains("c")].index.to_numpy(),
             }
-            nc_a = len(self.cap_buses["a"])
-            nc_b = len(self.cap_buses["b"])
-            nc_c = len(self.cap_buses["c"])
-            self.n_u = nc_a + nc_b + nc_c
-        self.load_buses = {
-            "a": self.bus.loc[self.bus.phases.str.contains("a")].index.to_numpy(),
-            "b": self.bus.loc[self.bus.phases.str.contains("b")].index.to_numpy(),
-            "c": self.bus.loc[self.bus.phases.str.contains("c")].index.to_numpy(),
-        }
+            self.n_caps = len(self.cap_buses["a"]) + len(self.cap_buses["b"]) + len(self.cap_buses["c"])
+        self.reg_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
+        if self.reg.shape[0] > 0:
+            self.reg_buses = {
+                "a": self.reg.loc[self.reg.phases.str.contains("a")].index.to_numpy(),
+                "b": self.reg.loc[self.reg.phases.str.contains("b")].index.to_numpy(),
+                "c": self.reg.loc[self.reg.phases.str.contains("c")].index.to_numpy(),
+            }
+            self.n_regs = len(self.reg_buses["a"]) + len(self.reg_buses["b"]) + len(self.reg_buses["c"])
         # ~~ initialize index pointers ~~
         self.x_maps, self.n_x = self._variable_tables(self.branch)
-        self.pg_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
-        self.qg_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
-        self.pl_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.load_buses)
-        self.ql_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.load_buses)
-        self.qc_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
-        self.zc_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
-        self.uc_start_phase_idxs, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
-
+        self.v_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
+        self.pl_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
+        self.ql_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
+        self.pg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
+        self.qg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
+        self.qc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
         # ~~~~~~~~~~~~~~~~~~~~ initialize Aeq and beq ~~~~~~~~~~~~~~~~~~~~
-        self.a_eq, self.b_eq = self.create_model()
-        self.bounds = self.init_bounds(self.bus, self.gen)
+        self._a_eq, self._b_eq = None, None
+        self._bounds = None
 
     @staticmethod
     def _init_rx(branch):
         row = np.array(np.r_[branch.fb, branch.tb], dtype=int) - 1
         col = np.array(np.r_[branch.tb, branch.fb], dtype=int) - 1
         r = {
-            "aa": csr_matrix((np.r_[branch.raa, branch.raa], (row, col))),
-            "ab": csr_matrix((np.r_[branch.rab, branch.rab], (row, col))),
-            "ac": csr_matrix((np.r_[branch.rac, branch.rac], (row, col))),
-            "bb": csr_matrix((np.r_[branch.rbb, branch.rbb], (row, col))),
-            "bc": csr_matrix((np.r_[branch.rbc, branch.rbc], (row, col))),
-            "cc": csr_matrix((np.r_[branch.rcc, branch.rcc], (row, col))),
+            "aa": csr_array((np.r_[branch.raa, branch.raa], (row, col))),
+            "ab": csr_array((np.r_[branch.rab, branch.rab], (row, col))),
+            "ac": csr_array((np.r_[branch.rac, branch.rac], (row, col))),
+            "bb": csr_array((np.r_[branch.rbb, branch.rbb], (row, col))),
+            "bc": csr_array((np.r_[branch.rbc, branch.rbc], (row, col))),
+            "cc": csr_array((np.r_[branch.rcc, branch.rcc], (row, col))),
         }
         x = {
-            "aa": csr_matrix((np.r_[branch.xaa, branch.xaa], (row, col))),
-            "ab": csr_matrix((np.r_[branch.xab, branch.xab], (row, col))),
-            "ac": csr_matrix((np.r_[branch.xac, branch.xac], (row, col))),
-            "bb": csr_matrix((np.r_[branch.xbb, branch.xbb], (row, col))),
-            "bc": csr_matrix((np.r_[branch.xbc, branch.xbc], (row, col))),
-            "cc": csr_matrix((np.r_[branch.xcc, branch.xcc], (row, col))),
+            "aa": csr_array((np.r_[branch.xaa, branch.xaa], (row, col))),
+            "ab": csr_array((np.r_[branch.xab, branch.xab], (row, col))),
+            "ac": csr_array((np.r_[branch.xac, branch.xac], (row, col))),
+            "bb": csr_array((np.r_[branch.xbb, branch.xbb], (row, col))),
+            "bc": csr_array((np.r_[branch.xbc, branch.xbc], (row, col))),
+            "cc": csr_array((np.r_[branch.xcc, branch.xcc], (row, col))),
         }
         return r, x
 
     @staticmethod
     def _variable_tables(branch):
-        a_indices = branch.phases.str.contains("a")
-        b_indices = branch.phases.str.contains("b")
-        c_indices = branch.phases.str.contains("c")
-        line_a = branch.loc[a_indices, ["fb", "tb"]].values
-        line_b = branch.loc[b_indices, ["fb", "tb"]].values
-        line_c = branch.loc[c_indices, ["fb", "tb"]].values
-        nl_a = len(line_a)
-        nl_b = len(line_b)
-        nl_c = len(line_c)
-        g = nx.Graph()
-        g_a = nx.Graph()
-        g_b = nx.Graph()
-        g_c = nx.Graph()
-        g.add_edges_from(branch[["fb", "tb"]].values.astype(int) - 1)
-        g_a.add_edges_from(line_a.astype(int) - 1)
-        g_b.add_edges_from(line_b.astype(int) - 1)
-        g_c.add_edges_from(line_c.astype(int) - 1)
-        t_a = np.array([])
-        t_b = np.array([])
-        t_c = np.array([])
-        if len(g_a.nodes) > 0:
-            t_a = np.array(list(nx.dfs_edges(g_a, source=0)))
-        if len(g_b.nodes) > 0:
-            t_b = np.array(list(nx.dfs_edges(g_b, source=0)))
-        if len(g_c.nodes) > 0:
-            t_c = np.array(list(nx.dfs_edges(g_c, source=0)))
-
-        p_a_end = 1 * nl_a
-        q_a_end = 2 * nl_a
-        v_a_end = 3 * nl_a + 1
-        p_b_end = v_a_end + 1 * nl_b
-        q_b_end = v_a_end + 2 * nl_b
-        v_b_end = v_a_end + 3 * nl_b + 1
-        p_c_end = v_b_end + 1 * nl_c
-        q_c_end = v_b_end + 2 * nl_c
-        v_c_end = v_b_end + 3 * nl_c + 1
-        df_a = pd.DataFrame(columns=["bi", "bj", "pij", "qij", "vi", "vj"])
-        df_b = pd.DataFrame(columns=["bi", "bj", "pij", "qij", "vi", "vj"])
-        df_c = pd.DataFrame(columns=["bi", "bj", "pij", "qij", "vi", "vj"])
-        if len(g_a.nodes) > 0:
-            df_a = pd.DataFrame(
-                {
-                    "bi": t_a[:, 0],
-                    "bj": t_a[:, 1],
-                    "pij": np.array([i for i in range(p_a_end)]),
-                    "qij": np.array([i for i in range(p_a_end, q_a_end)]),
-                    "vi": np.zeros_like(t_a[:, 0]),
-                    "vj": np.array([i for i in range(q_a_end + 1, v_a_end)]),
-                },
-                dtype=np.int32,
-            )
-            df_a.loc[0, "vi"] = df_a.at[0, "vj"] - 1
-            for i in df_a.bi.values[1:]:
-                df_a.loc[df_a.loc[:, "bi"] == i, "vi"] = df_a.loc[
-                    df_a.bj == i, "vj"
-                ].values[0]
-        if len(g_b.nodes) > 0:
-            df_b = pd.DataFrame(
-                {
-                    "bi": t_b[:, 0],
-                    "bj": t_b[:, 1],
-                    "pij": np.array([i for i in range(v_a_end, p_b_end)]),
-                    "qij": np.array([i for i in range(p_b_end, q_b_end)]),
-                    "vi": np.zeros_like(t_b[:, 0]),
-                    "vj": np.array([i for i in range(q_b_end + 1, v_b_end)]),
-                },
-                dtype=np.int32,
-            )
-            df_b.loc[0, "vi"] = df_b.at[0, "vj"] - 1
-            for i in df_b.bi.values[1:]:
-                df_b.loc[df_b.loc[:, "bi"] == i, "vi"] = df_b.loc[
-                    df_b.bj == i, "vj"
-                ].values[0]
-        if len(g_c.nodes) > 0:
-            df_c = pd.DataFrame(
-                {
-                    "bi": t_c[:, 0],
-                    "bj": t_c[:, 1],
-                    "pij": [i for i in range(v_b_end, p_c_end)],
-                    "qij": [i for i in range(p_c_end, q_c_end)],
-                    "vi": np.zeros_like(t_c[:, 0]),
-                    "vj": [i for i in range(q_c_end + 1, v_c_end)],
-                },
-                dtype=np.int32,
-            )
-            df_c.loc[0, "vi"] = df_c.at[0, "vj"] - 1
-            for i in df_c.bi.values[1:]:
-                df_c.loc[df_c.loc[:, "bi"] == i, "vi"] = df_c.loc[
-                    df_c.bj == i, "vj"
-                ].values[0]
-        n_x = v_c_end  # start with the largest index so far
-
-        x_maps = {"a": df_a, "b": df_b, "c": df_c}
+        x_maps = {}
+        n_x = 0
+        for a in "abc":
+            indices = branch.phases.str.contains(a)
+            lines = branch.loc[indices, ["fb", "tb"]].values.astype(int) - 1
+            n_lines = len(lines)
+            df = pd.DataFrame(columns=["bi", "bj", "pij", "qij"], index=range(n_lines))
+            if n_lines == 0:
+                continue
+            g = nx.Graph()
+            g.add_edges_from(lines)
+            i_root = list(set(lines[:, 0]) - set(lines[:, 1]))[0]  # root node is only node with no from-bus
+            edges = np.array(list(nx.dfs_edges(g, source=i_root)))
+            df["bi"] = edges[:, 0]
+            df["bj"] = edges[:, 1]
+            df["pij"] = np.array([i for i in range(n_x, n_x + n_lines)])
+            n_x = n_x + n_lines
+            df["qij"] = np.array([i for i in range(n_x, n_x + n_lines)])
+            n_x = n_x + n_lines
+            x_maps[a] = df.astype(int)
         return x_maps, n_x
-
 
     @staticmethod
     def _add_device_variables(n_x: int, device_buses: dict):
         n_a = len(device_buses["a"])
         n_b = len(device_buses["b"])
         n_c = len(device_buses["c"])
-        start_phase_idxs = {
-            "a": n_x,
-            "b": n_x + n_a,
-            "c": n_x + n_a + n_b,
+        device_maps = {
+            "a": pd.Series(range(n_x, n_x + n_a), index=device_buses["a"]),
+            "b": pd.Series(range(n_x + n_a, n_x + n_a + n_b), index=device_buses["b"]),
+            "c": pd.Series(range(n_x + n_a + n_b, n_x + n_a + n_b + n_c), index=device_buses["c"]),
         }
         n_x = n_x + n_a + n_b + n_c
-        return start_phase_idxs, n_x
+        return device_maps, n_x
 
-    def init_bounds(self, bus, gen):
+    def init_bounds(self):
         default = 100e3  # Default for unbounded variables.
-        x_maps = self.x_maps
         # ~~~~~~~~~~ x limits ~~~~~~~~~~
         x_lim_lower = np.ones(self.n_x) * -default
         x_lim_upper = np.ones(self.n_x) * default
-        for a in "abc":
-            if self.phase_exists(a):
-                x_lim_lower[x_maps[a].loc[:, "pij"]] = -default  # P
-                x_lim_upper[x_maps[a].loc[:, "pij"]] = default  # P
-                x_lim_lower[x_maps[a].loc[:, "qij"]] = -default  # Q
-                x_lim_upper[x_maps[a].loc[:, "qij"]] = default  # Q
-                # ~~ v limits ~~:
-                i_root = list(set(x_maps["a"].bi) - set(x_maps["a"].bj))[0]
-                i_v_swing = (
-                    x_maps[a]
-                    .loc[x_maps[a].loc[:, "bi"] == i_root, "vi"]
-                    .to_numpy()[0]
-                )
-                x_lim_lower[i_v_swing] = bus.loc[i_root, "v_min"] ** 2
-                x_lim_upper[i_v_swing] = bus.loc[i_root, "v_max"] ** 2
-                x_lim_lower[x_maps[a].loc[:, "vj"]] = (
-                    bus.loc[x_maps[a].loc[:, "bj"], "v_min"] ** 2
-                )
-                x_lim_upper[x_maps[a].loc[:, "vj"]] = (
-                    bus.loc[x_maps[a].loc[:, "bj"], "v_max"] ** 2
-                )
-                for j in self.gen_buses[a]:
-                    i_p = self.idx("pg", j, a)
-                    i_q = self.idx("qg", j, a)
-                    q_max_manual = gen[f"q{a}_max"][j]
-                    q_min_manual = gen[f"q{a}_min"][j]
-                    s_rated: pd.Series = gen[f"s{a}_max"]
-                    p_out: pd.Series = gen[f"p{a}"]
-                    # active power bounds
-                    x_lim_lower[i_p] = 0
-                    x_lim_upper[i_p] = p_out[j]
-                    # reactive power bounds
-                    q_min: pd.Series = -(((s_rated**2) - (p_out**2)) ** (1 / 2))
-                    q_max: pd.Series = ((s_rated**2) - (p_out**2)) ** (1 / 2)
-                    x_lim_lower[i_q] = max(q_min[j], q_min_manual)
-                    x_lim_upper[i_q] = min(q_max[j], q_max_manual)
+        x_lim_lower, x_lim_upper = self.add_voltage_limits(x_lim_lower, x_lim_upper)
+        x_lim_lower, x_lim_upper = self.add_generator_limits(x_lim_lower, x_lim_upper)
+        x_lim_lower, x_lim_upper = self.user_added_limits(x_lim_lower, x_lim_upper)
         bounds = [(l, u) for (l, u) in zip(x_lim_lower, x_lim_upper)]
         return bounds
 
+    def user_added_limits(self, x_lim_lower, x_lim_upper):
+        """
+        User added limits function. Override this function to add custom variable limits.
+        Parameters
+        ----------
+        x_lim_lower :
+        x_lim_upper :
+
+        Returns
+        -------
+        x_lim_lower : lower limits for x-vector
+        x_lim_upper : upper limits for x-vector
+
+        Examples
+        --------
+        ```python
+        p_lim = 10
+        q_lim = 10
+        for a in "abc":
+            if not self.phase_exists(a):
+                continue
+            x_lim_lower[self.x_maps[a].pij] = -p_lim
+            x_lim_upper[self.x_maps[a].pij] = p_lim
+            x_lim_lower[self.x_maps[a].qij] = -q_lim
+            x_lim_upper[self.x_maps[a].qij] = q_lim
+        ```
+        """
+        return x_lim_lower, x_lim_upper
+
+    def add_voltage_limits(self, x_lim_lower, x_lim_upper):
+        for a in "abc":
+            if not self.phase_exists(a):
+                continue
+            # ~~ v limits ~~:
+            x_lim_upper[self.v_map[a]] = self.bus.loc[self.v_map[a].index, "v_max"] ** 2
+            x_lim_lower[self.v_map[a]] = self.bus.loc[self.v_map[a].index, "v_min"] ** 2
+        return x_lim_lower, x_lim_upper
+
+    def add_generator_limits(self, x_lim_lower, x_lim_upper):
+        for a in "abc":
+            if not self.phase_exists(a):
+                continue
+            q_max_manual = self.gen[f"q{a}_max"]
+            q_min_manual = self.gen[f"q{a}_min"]
+            s_rated = self.gen[f"s{a}_max"]
+            p_out = self.gen[f"p{a}"]
+            q_min = -1*(((s_rated**2) - (p_out**2)) ** (1 / 2))
+            q_max = ((s_rated**2) - (p_out**2)) ** (1 / 2)
+            for j in self.gen_buses[a]:
+                pg = self.idx("pg", j, a)
+                qg = self.idx("qg", j, a)
+                # active power bounds
+                x_lim_lower[pg] = 0
+                x_lim_upper[pg] = p_out[j]
+                # reactive power bounds
+                x_lim_lower[qg] = max(q_min[j], q_min_manual[j])
+                x_lim_upper[qg] = min(q_max[j], q_max_manual[j])
+        return x_lim_lower, x_lim_upper
+
     @cache
     def branch_into_j(self, var, j, phase):
-        return self.x_maps[phase].loc[self.x_maps[phase].bj == j, var].to_numpy()
+        idx = self.x_maps[phase].loc[self.x_maps[phase].bj == j, var].to_numpy()
+        return idx[~np.isnan(idx)].astype(int)
 
     @cache
     def branches_out_of_j(self, var, j, phase):
-        return self.x_maps[phase].loc[self.x_maps[phase].bi == j, var].to_numpy()
+        idx = self.x_maps[phase].loc[self.x_maps[phase].bi == j, var].to_numpy()
+        return idx[~np.isnan(idx)].astype(int)
 
     @cache
     def idx(self, var, node_j, phase):
-        if var == "q_cap":  # active power generation at node
-            if node_j in set(self.cap_buses[phase]):
-                return (
-                    self.qc_start_phase_idxs[phase]
-                    + np.where(self.cap_buses[phase] == node_j)[0]
-                )
-            return []
-        if var == "z_c":
-            if node_j in set(self.cap_buses[phase]):
-                return (
-                    self.zc_start_phase_idxs[phase]
-                    + np.where(self.cap_buses[phase] == node_j)[0]
-                )
-            return []
-        if var == "u_c":
-            if node_j in set(self.cap_buses[phase]):
-                return (
-                    self.uc_start_phase_idxs[phase]
-                    + np.where(self.cap_buses[phase] == node_j)[0]
-                )
-            return []
-        if var == "pg":  # active power generation at node
-            if node_j in set(self.gen_buses[phase]):
-                return (
-                    self.pg_start_phase_idxs[phase]
-                    + np.where(self.gen_buses[phase] == node_j)[0]
-                )
-            return []
-        if var == "qg":  # reactive power generation at node
-            if node_j in set(self.gen_buses[phase]):
-                return (
-                    self.qg_start_phase_idxs[phase]
-                    + np.where(self.gen_buses[phase] == node_j)[0]
-                )
-            return []
-        if var == "pl":  # active power load at node
-            if node_j in set(self.load_buses[phase]):
-                return (
-                    self.pl_start_phase_idxs[phase]
-                    + np.where(self.load_buses[phase] == node_j)[0]
-                )
-        if var == "ql":  # reactive power load at node
-            if node_j in set(self.load_buses[phase]):
-                return (
-                    self.ql_start_phase_idxs[phase]
-                    + np.where(self.load_buses[phase] == node_j)[0]
-                )
+        if var in self.x_maps[phase].columns:
+            return self.branch_into_j(var, node_j, phase)
         if var in ["pjk"]:  # indexes of all branch active power out of node j
             return self.branches_out_of_j("pij", node_j, phase)
         if var in ["qjk"]:  # indexes of all branch reactive power out of node j
             return self.branches_out_of_j("qij", node_j, phase)
-        # self.user_added_idx(var, node_j, phase)
-        return self.branch_into_j(var, node_j, phase)
+        if var in ["v"]:  # active power generation at node
+            return self.v_map[phase].get(node_j, [])
+        if var in ["pg", "p_gen"]:  # active power generation at node
+            return self.pg_map[phase].get(node_j, [])
+        if var in ["qg", "q_gen"]:  # reactive power generation at node
+            return self.qg_map[phase].get(node_j, [])
+        if var in ["pl", "p_load"]:  # active power load at node
+            return self.pl_map[phase].get(node_j, [])
+        if var in ["ql", "q_load"]:  # reactive power load at node
+            return self.ql_map[phase].get(node_j, [])
+        if var in ["qc", "q_cap"]:  # reactive power injection by capacitor
+            return self.qc_map[phase].get(node_j, [])
+        ix = self.user_added_idx(var, node_j, phase)
+        if ix is not None:
+            return ix
+        raise ValueError(f"Variable name, '{var}', not found.")
+
+    def user_added_idx(self, var, node_j, phase):
+        """
+        User added index function. Override this function to add custom variables. Return None if `var` is not found.
+        Parameters
+        ----------
+        var : name of variable
+        node_j : node index (0 based; bus.id - 1)
+        phase : "a", "b", or "c"
+
+        Returns
+        -------
+        ix : index or list of indices of variable within x-vector or None if `var` is not found.
+        """
+        return None
 
     @cache
     def phase_exists(self, phase, index: int = None):
@@ -459,9 +400,6 @@ class LinDistModel:
         return len(self.idx("bj", index, phase)) > 0
 
     def create_model(self):
-        r, x = self.r, self.x
-        bus = self.bus
-
         # ########## Aeq and Beq Formation ###########
         n_rows = self.n_x
         n_cols = self.n_x
@@ -471,62 +409,71 @@ class LinDistModel:
         for j in range(1, self.nb):
             for ph in ["abc", "bca", "cab"]:
                 a, b, c = ph[0], ph[1], ph[2]
-                aa = "".join(sorted(a + a))
-                # if ph=='cab', then a+b=='ca'. Sort so ab=='ac'
-                ab = "".join(sorted(a + b))
-                ac = "".join(sorted(a + c))
                 if not self.phase_exists(a, j):
                     continue
-                reg_ratio = 1
-                if self.reg is not None:
-                    reg_ratio = get(self.reg[f"ratio_{a}"], j, 1)
-                # equation indexes
-                pij = self.idx("pij", j,  a)
-                qij = self.idx("qij", j,  a)
-                pijb = self.idx("pij", j,  b)
-                qijb = self.idx("qij", j,  b)
-                pijc = self.idx("pij", j,  c)
-                qijc = self.idx("qij", j,  c)
-                pjk = self.idx("pjk", j, a)
-                qjk = self.idx("qjk", j, a)
-                vi = self.idx("vi", j, a)
-                vj = self.idx("vj", j, a)
-                pl = self.idx("pl", j, a)
-                ql = self.idx("ql", j, a)
-                pg = self.idx("pg", j, a)
-                qg = self.idx("qg", j, a)
-                qc = self.idx("q_cap", j, a)
-                # Set P equation variable coefficients in a_eq
-                a_eq[pij, pij] = 1
-                a_eq[pij, pjk] = -1
-                a_eq[pij, pl] = -1
-                a_eq[pij, pg] = 1
-                # Set Q equation variable coefficients in a_eq
-                a_eq[qij, qij] = 1
-                a_eq[qij, qjk] = -1
-                a_eq[qij, ql] = -1
-                a_eq[qij, qg] = 1
-                a_eq[qij, qc] = 1
-                # Set V equation variable coefficients in a_eq and constants in b_eq
-                i = self.idx("bi", j, a)[0]  # get the upstream node, i, on branch from i to j
-                if bus.bus_type[i] == SWING_BUS:  # Swing bus
-                    a_eq[vi, vi] = 1
-                    b_eq[vi] = bus.at[i, f"v_{a}"] ** 2
-                a_eq[vj, vj] = 1
-                a_eq[vj, vi] = -1 * reg_ratio**2
-                a_eq[vj, pij] = 2 * r[aa][i, j]
-                a_eq[vj, qij] = 2 * x[aa][i, j]
-                if self.phase_exists(b, j):
-                    a_eq[vj, pijb] = -r[ab][i, j] + sqrt(3) * x[ab][i, j]
-                    a_eq[vj, qijb] = -x[ab][i, j] - sqrt(3) * r[ab][i, j]
-                if self.phase_exists(c, j):
-                    a_eq[vj, pijc] = -r[ac][i, j] - sqrt(3) * x[ac][i, j]
-                    a_eq[vj, qijc] = -x[ac][i, j] + sqrt(3) * r[ac][i, j]
+                a_eq, b_eq = self.add_power_flow_model(a_eq, b_eq, j, a)
+                a_eq, b_eq = self.add_voltage_drop_model(a_eq, b_eq, j, a, b, c)
                 a_eq, b_eq = self.add_load_model(a_eq, b_eq, j, a)
                 a_eq, b_eq = self.add_generator_model(a_eq, b_eq, j, a)
                 a_eq, b_eq = self.add_capacitor_model(a_eq, b_eq, j, a)
         return a_eq, b_eq
 
+    def add_power_flow_model(self, a_eq, b_eq, j, phase):
+        pij = self.idx("pij", j,  phase)
+        qij = self.idx("qij", j,  phase)
+        pjk = self.idx("pjk", j, phase)
+        qjk = self.idx("qjk", j, phase)
+        pl = self.idx("pl", j, phase)
+        ql = self.idx("ql", j, phase)
+        pg = self.idx("pg", j, phase)
+        qg = self.idx("qg", j, phase)
+        qc = self.idx("q_cap", j, phase)
+        # Set P equation variable coefficients in a_eq
+        a_eq[pij, pij] = 1
+        a_eq[pij, pjk] = -1
+        a_eq[pij, pl] = -1
+        a_eq[pij, pg] = 1
+        # Set Q equation variable coefficients in a_eq
+        a_eq[qij, qij] = 1
+        a_eq[qij, qjk] = -1
+        a_eq[qij, ql] = -1
+        a_eq[qij, qg] = 1
+        a_eq[qij, qc] = 1
+        return a_eq, b_eq
+
+    def add_voltage_drop_model(self, a_eq, b_eq, j, a, b, c):
+        r, x = self.r, self.x
+        aa = "".join(sorted(a + a))
+        # if ph=='cab', then a+b=='ca'. Sort so ab=='ac'
+        ab = "".join(sorted(a + b))
+        ac = "".join(sorted(a + c))
+        i = self.idx("bi", j, a)[0]  # get the upstream node, i, on branch from i to j
+        reg_ratio = 1
+        if self.reg is not None:
+            reg_ratio = get(self.reg[f"ratio_{a}"], j, 1)
+        pij = self.idx("pij", j,  a)
+        qij = self.idx("qij", j,  a)
+        pijb = self.idx("pij", j,  b)
+        qijb = self.idx("qij", j,  b)
+        pijc = self.idx("pij", j,  c)
+        qijc = self.idx("qij", j,  c)
+        vi = self.idx("v", i, a)
+        vj = self.idx("v", j, a)
+        # Set V equation variable coefficients in a_eq and constants in b_eq
+        if self.bus.bus_type[i] == SWING_BUS:  # Swing bus
+            a_eq[vi, vi] = 1
+            b_eq[vi] = self.bus.at[i, f"v_{a}"] ** 2
+        a_eq[vj, vj] = 1
+        a_eq[vj, vi] = -1 * reg_ratio**2
+        a_eq[vj, pij] = 2 * r[aa][i, j]
+        a_eq[vj, qij] = 2 * x[aa][i, j]
+        if self.phase_exists(b, j):
+            a_eq[vj, pijb] = -r[ab][i, j] + sqrt(3) * x[ab][i, j]
+            a_eq[vj, qijb] = -x[ab][i, j] - sqrt(3) * r[ab][i, j]
+        if self.phase_exists(c, j):
+            a_eq[vj, pijc] = -r[ac][i, j] - sqrt(3) * x[ac][i, j]
+            a_eq[vj, qijc] = -x[ac][i, j] + sqrt(3) * r[ac][i, j]
+        return a_eq, b_eq
 
     def add_generator_model(self, a_eq, b_eq, j, phase):
         a = phase
@@ -555,7 +502,7 @@ class LinDistModel:
         # equation indexes
         pl = self.idx("pl", j, a)
         ql = self.idx("ql", j, a)
-        vj = self.idx("vj", j, a)
+        vj = self.idx("v", j, a)
         # boundary p and q
         if self.bus.bus_type[j] != PQ_FREE:
             # Set Load equation variable coefficients in a_eq
@@ -572,61 +519,50 @@ class LinDistModel:
         if self.cap is not None:
             q_cap_nom = get(self.cap[f"q{phase}"], j, 0)
         # equation indexes
-        vj = self.idx("vj", j, phase)
+        vj = self.idx("v", j, phase)
         qc = self.idx("q_cap", j, phase)
         a_eq[qc, qc] = 1
         a_eq[qc, vj] = -q_cap_nom
         return a_eq, b_eq
 
-
     def parse_results(self, x, variable_name: str):
         values = pd.DataFrame(columns=["name", "a", "b", "c"])
         for ph in "abc":
-            for j in self.load_buses[ph]:
+            for j in self.all_buses[ph]:
                 values.at[j + 1, "name"] = self.bus.at[j, "name"]
                 values.at[j + 1, ph] = x[self.idx(variable_name, j, ph)]
-        return values
+        return values.sort_index()
 
-    def get_decision_variables(self, x):
-        decision_variables = pd.DataFrame(columns=["name", "a", "b", "c"])
-        for ph in "abc":
-            for j in self.gen_buses[ph]:
-                decision_variables.at[j + 1, "name"] = self.bus.at[j, "name"]
-                decision_variables.at[j + 1, ph] = x[self.idx("qg", j, ph)]
-        return decision_variables
-
-
-    def get_p_gens(self, x):
-        decision_variables = pd.DataFrame(columns=["name", "a", "b", "c"])
-        for ph in "abc":
-            for j in self.gen_buses[ph]:
-                decision_variables.at[j + 1, "name"] = self.bus.at[j, "name"]
-                decision_variables.at[j + 1, ph] = x[self.idx("pg", j, ph)]
-        return decision_variables
-
-    def get_q_gens(self, x):
-        decision_variables = pd.DataFrame(columns=["name", "a", "b", "c"])
-        for ph in "abc":
-            for j in self.gen_buses[ph]:
-                decision_variables.at[j + 1, "name"] = self.bus.at[j, "name"]
-                decision_variables.at[j + 1, ph] = x[self.idx("qg", j, ph)]
+    def get_device_variables(self, x, variable_map):
+        index = np.unique(np.r_[variable_map["a"].index, variable_map["b"].index, variable_map["c"].index])
+        bus_id = index + 1
+        decision_variables = pd.DataFrame(
+            columns=["name", "a", "b", "c"],
+            index=bus_id)
+        decision_variables.loc[bus_id, "name"] = self.bus.loc[index, "name"].to_numpy()
+        for a in "abc":
+            decision_variables.loc[variable_map[a].index + 1, a] = x[variable_map[a]]
         return decision_variables
 
     def get_voltages(self, x):
-        v_df = pd.DataFrame(
-            columns=["name", "a", "b", "c"],
-            index=np.array(range(1, self.nb + 1)),
-        )
-        v_df["name"] = self.bus["name"].to_numpy()
-        for ph in "abc":
-            if not self.phase_exists(ph):
-                v_df.loc[:, ph] = 0.0
-                continue
-            v_df.loc[1, ph] = np.sqrt(x[self.x_maps[ph].vi[0]].astype(np.float64))
-            v_df.loc[self.x_maps[ph].bj.values + 1, ph] = np.sqrt(
-                x[self.x_maps[ph].vj.values].astype(np.float64)
-            )
+        v_df = self.get_device_variables(x, self.v_map)
+        v_df.loc[:, ["a", "b", "c"]] = v_df.loc[:, ["a", "b", "c"]] ** 0.5
         return v_df
+
+    def get_p_loads(self, x):
+        return self.get_device_variables(x, self.pl_map)
+
+    def get_q_loads(self, x):
+        return self.get_device_variables(x, self.ql_map)
+
+    def get_q_gens(self, x):
+        return self.get_device_variables(x, self.qg_map)
+
+    def get_p_gens(self, x):
+        return self.get_device_variables(x, self.pg_map)
+
+    def get_q_caps(self, x):
+        return self.get_device_variables(x, self.qc_map)
 
     def get_apparent_power_flows(self, x):
         s_df = pd.DataFrame(
@@ -666,3 +602,21 @@ class LinDistModel:
     @property
     def reg_data(self):
         return self.reg
+
+    @property
+    def a_eq(self):
+        if self._a_eq is None:
+            self._a_eq, self._b_eq = self.create_model()
+        return self._a_eq
+
+    @property
+    def b_eq(self):
+        if self._b_eq is None:
+            self._a_eq, self._b_eq = self.create_model()
+        return self._b_eq
+
+    @property
+    def bounds(self):
+        if self._bounds is None:
+            self._bounds = self.init_bounds()
+        return self._bounds
