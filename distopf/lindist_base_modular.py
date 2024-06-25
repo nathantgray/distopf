@@ -6,7 +6,6 @@ import pandas as pd
 from numpy import sqrt, zeros
 from scipy.sparse import csr_array, coo_array, dok_array, lil_array
 
-
 # bus_type options
 SWING_FREE = "IN"
 PQ_FREE = "OUT"
@@ -16,6 +15,7 @@ PQ_BUS = "PQ"
 CONSTANT_PQ = "CONSTANT_PQ"
 CONSTANT_P = "CONSTANT_P"
 CONSTANT_Q = "CONSTANT_Q"
+
 
 def get(s: pd.Series, i, default=None):
     """
@@ -185,7 +185,11 @@ class LinDistModelModular:
                 "b": self.gen.loc[self.gen.phases.str.contains("b")].index.to_numpy(),
                 "c": self.gen.loc[self.gen.phases.str.contains("c")].index.to_numpy(),
             }
-            self.n_gens = len(self.gen_buses["a"]) + len(self.gen_buses["b"]) + len(self.gen_buses["c"])
+            self.n_gens = (
+                len(self.gen_buses["a"])
+                + len(self.gen_buses["b"])
+                + len(self.gen_buses["c"])
+            )
         self.cap_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
         if self.cap.shape[0] > 0:
             self.cap_buses = {
@@ -193,7 +197,11 @@ class LinDistModelModular:
                 "b": self.cap.loc[self.cap.phases.str.contains("b")].index.to_numpy(),
                 "c": self.cap.loc[self.cap.phases.str.contains("c")].index.to_numpy(),
             }
-            self.n_caps = len(self.cap_buses["a"]) + len(self.cap_buses["b"]) + len(self.cap_buses["c"])
+            self.n_caps = (
+                len(self.cap_buses["a"])
+                + len(self.cap_buses["b"])
+                + len(self.cap_buses["c"])
+            )
         self.reg_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
         if self.reg.shape[0] > 0:
             self.reg_buses = {
@@ -201,7 +209,11 @@ class LinDistModelModular:
                 "b": self.reg.loc[self.reg.phases.str.contains("b")].index.to_numpy(),
                 "c": self.reg.loc[self.reg.phases.str.contains("c")].index.to_numpy(),
             }
-            self.n_regs = len(self.reg_buses["a"]) + len(self.reg_buses["b"]) + len(self.reg_buses["c"])
+            self.n_regs = (
+                len(self.reg_buses["a"])
+                + len(self.reg_buses["b"])
+                + len(self.reg_buses["c"])
+            )
         # ~~ initialize index pointers ~~
         self.x_maps, self.n_x = self._variable_tables(self.branch)
         self.v_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
@@ -249,7 +261,9 @@ class LinDistModelModular:
                 continue
             g = nx.Graph()
             g.add_edges_from(lines)
-            i_root = list(set(lines[:, 0]) - set(lines[:, 1]))[0]  # root node is only node with no from-bus
+            i_root = list(set(lines[:, 0]) - set(lines[:, 1]))[
+                0
+            ]  # root node is only node with no from-bus
             edges = np.array(list(nx.dfs_edges(g, source=i_root)))
             df["bi"] = edges[:, 0]
             df["bj"] = edges[:, 1]
@@ -268,7 +282,9 @@ class LinDistModelModular:
         device_maps = {
             "a": pd.Series(range(n_x, n_x + n_a), index=device_buses["a"]),
             "b": pd.Series(range(n_x + n_a, n_x + n_a + n_b), index=device_buses["b"]),
-            "c": pd.Series(range(n_x + n_a + n_b, n_x + n_a + n_b + n_c), index=device_buses["c"]),
+            "c": pd.Series(
+                range(n_x + n_a + n_b, n_x + n_a + n_b + n_c), index=device_buses["c"]
+            ),
         }
         n_x = n_x + n_a + n_b + n_c
         return device_maps, n_x
@@ -330,7 +346,7 @@ class LinDistModelModular:
             q_min_manual = self.gen[f"q{a}_min"]
             s_rated = self.gen[f"s{a}_max"]
             p_out = self.gen[f"p{a}"]
-            q_min = -1*(((s_rated**2) - (p_out**2)) ** (1 / 2))
+            q_min = -1 * (((s_rated**2) - (p_out**2)) ** (1 / 2))
             q_max = ((s_rated**2) - (p_out**2)) ** (1 / 2)
             for j in self.gen_buses[a]:
                 pg = self.idx("pg", j, a)
@@ -419,8 +435,8 @@ class LinDistModelModular:
         return a_eq, b_eq
 
     def add_power_flow_model(self, a_eq, b_eq, j, phase):
-        pij = self.idx("pij", j,  phase)
-        qij = self.idx("qij", j,  phase)
+        pij = self.idx("pij", j, phase)
+        qij = self.idx("qij", j, phase)
         pjk = self.idx("pjk", j, phase)
         qjk = self.idx("qjk", j, phase)
         pl = self.idx("pl", j, phase)
@@ -451,12 +467,12 @@ class LinDistModelModular:
         reg_ratio = 1
         if self.reg is not None:
             reg_ratio = get(self.reg[f"ratio_{a}"], j, 1)
-        pij = self.idx("pij", j,  a)
-        qij = self.idx("qij", j,  a)
-        pijb = self.idx("pij", j,  b)
-        qijb = self.idx("qij", j,  b)
-        pijc = self.idx("pij", j,  c)
-        qijc = self.idx("qij", j,  c)
+        pij = self.idx("pij", j, a)
+        qij = self.idx("qij", j, a)
+        pijb = self.idx("pij", j, b)
+        qijb = self.idx("qij", j, b)
+        pijc = self.idx("pij", j, c)
+        qijc = self.idx("qij", j, c)
         vi = self.idx("v", i, a)
         vj = self.idx("v", j, a)
         # Set V equation variable coefficients in a_eq and constants in b_eq
@@ -534,11 +550,15 @@ class LinDistModelModular:
         return values.sort_index()
 
     def get_device_variables(self, x, variable_map):
-        index = np.unique(np.r_[variable_map["a"].index, variable_map["b"].index, variable_map["c"].index])
+        index = np.unique(
+            np.r_[
+                variable_map["a"].index,
+                variable_map["b"].index,
+                variable_map["c"].index,
+            ]
+        )
         bus_id = index + 1
-        decision_variables = pd.DataFrame(
-            columns=["name", "a", "b", "c"],
-            index=bus_id)
+        decision_variables = pd.DataFrame(columns=["name", "a", "b", "c"], index=bus_id)
         decision_variables.loc[bus_id, "name"] = self.bus.loc[index, "name"].to_numpy()
         for a in "abc":
             decision_variables.loc[variable_map[a].index + 1, a] = x[variable_map[a]]

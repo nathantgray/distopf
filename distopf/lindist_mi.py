@@ -7,7 +7,6 @@ from numpy import sqrt, zeros
 from scipy.sparse import csr_matrix
 from distopf.lindist_base_modular import LinDistModelModular, get
 
-
 # bus_type options
 SWING_FREE = "IN"
 PQ_FREE = "OUT"
@@ -85,7 +84,11 @@ class LinDistModelMI(LinDistModelModular):
         """
 
         # ########## Aineq and Bineq Formation ###########
-        n_rows_ineq = 4*(len(self.cap_buses["a"]) + len(self.cap_buses["b"]) + len(self.cap_buses["c"]))
+        n_rows_ineq = 4 * (
+            len(self.cap_buses["a"])
+            + len(self.cap_buses["b"])
+            + len(self.cap_buses["c"])
+        )
         a_ineq = zeros((n_rows_ineq, self.n_x))
         b_ineq = zeros(n_rows_ineq)
         ineq1 = 0
