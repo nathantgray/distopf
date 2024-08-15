@@ -15,7 +15,7 @@ PQ_BUS = "PQ"
 CONSTANT_PQ = "CONSTANT_PQ"
 CONSTANT_P = "CONSTANT_P"
 CONSTANT_Q = "CONSTANT_Q"
-
+CONTROL_PQ = "CONTROL_PQ"
 
 def get(s: pd.Series, i, default=None):
     """
@@ -224,6 +224,7 @@ class LinDistModelModular:
         self.qc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
         # ~~~~~~~~~~~~~~~~~~~~ initialize Aeq and beq ~~~~~~~~~~~~~~~~~~~~
         self._a_eq, self._b_eq = None, None
+        self._a_ub, self._b_ub = None, None
         self._bounds = None
 
     @staticmethod
@@ -297,7 +298,8 @@ class LinDistModelModular:
         x_lim_lower, x_lim_upper = self.add_voltage_limits(x_lim_lower, x_lim_upper)
         x_lim_lower, x_lim_upper = self.add_generator_limits(x_lim_lower, x_lim_upper)
         x_lim_lower, x_lim_upper = self.user_added_limits(x_lim_lower, x_lim_upper)
-        bounds = [(l, u) for (l, u) in zip(x_lim_lower, x_lim_upper)]
+        bounds = np.c_[x_lim_lower, x_lim_upper]
+        # bounds = [(l, u) for (l, u) in zip(x_lim_lower, x_lim_upper)]
         return bounds
 
     def user_added_limits(self, x_lim_lower, x_lim_upper):
@@ -639,4 +641,17 @@ class LinDistModelModular:
     def bounds(self):
         if self._bounds is None:
             self._bounds = self.init_bounds()
-        return self._bounds
+        return list(map(tuple, self._bounds))
+
+    @property
+    def x_min(self):
+        if self._bounds is None:
+            self._bounds = self.init_bounds()
+        return self._bounds[:, 0]
+
+    @property
+    def x_max(self):
+        if self._bounds is None:
+            self._bounds = self.init_bounds()
+        return self._bounds[:, 1]
+

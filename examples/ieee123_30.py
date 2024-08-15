@@ -2,7 +2,7 @@ import numpy as np
 import distopf as opf
 
 case = opf.DistOPFCase(
-    data_path="ieee123", gen_mult=1, load_mult=1, v_swing=1.0, v_max=1.05, v_min=0.95
+    data_path="ieee123_30der", gen_mult=1, load_mult=1, v_swing=1.0, v_max=1.05, v_min=0.95
 )
 
 model = opf.LinDistModelQ(

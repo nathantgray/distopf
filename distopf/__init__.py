@@ -2,6 +2,7 @@
 from distopf.dssconverter.dssparser import DSSParser
 from distopf.lindist_base import LinDistModel
 from distopf.lindist_base_modular import LinDistModelModular
+from distopf.lindist_pq import LinDistPQ
 from distopf.lindist_p import LinDistModelP
 from distopf.lindist_q import LinDistModelQ
 from distopf.lindist_mi import LinDistModelMI
