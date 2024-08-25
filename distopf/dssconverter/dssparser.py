@@ -589,8 +589,67 @@ class DSSParser:
             each_gen["qc_min"] = (None,)
 
             gen_data.append(each_gen)
-
             generator_flag = self.dss.Generators.Next()
+
+        pv_flag = self.dss.PVsystems.First()
+        while pv_flag:
+            bus_phases = self.dss.CktElement.BusNames()[0].split(".")[1:]
+            n_phases = len(bus_phases)
+            if len(bus_phases) == 0 or len(bus_phases) >= 3:
+                n_phases = 3
+            active_phases = np.array([0, 1, 2])
+            if n_phases < 3:
+                active_phases = (
+                    np.array(self.dss.CktElement.BusNames()[0].split(".")[1:]).astype(
+                        int
+                    )
+                    - 1
+                )
+
+            active_power_per_phase = (
+                self.dss.PVsystems.Pmpp() / n_phases * 1000
+            ) / s_base
+            reactive_power_per_phase = (
+                self.dss.PVsystems.kvar() / n_phases * 1000
+            ) / s_base
+            apparent_power_rating = (
+                self.dss.PVsystems.kVARated() / n_phases * 1000 / s_base
+            )
+            gen_name = self.dss.PVsystems.Name()
+            bus_name = self.dss.CktElement.BusNames()[0].split(".")[0]
+            each_gen = dict(
+                id=self.bus_names_to_index_map[bus_name],
+                name=gen_name,
+            )
+            phases = ""
+            for phase_id in active_phases:
+                ph = "abc"[phase_id]
+                each_gen[f"p{ph}"] = active_power_per_phase
+                phases = phases + ph
+            for phase_id in active_phases:
+                ph = "abc"[phase_id]
+                each_gen[f"q{ph}"] = reactive_power_per_phase
+            for phase_id in active_phases:
+                ph = "abc"[phase_id]
+                each_gen[f"s{ph}_max"] = apparent_power_rating
+            for ph in "abc":
+                if ph not in phases:
+                    each_gen[f"p{ph}"] = 0
+                    each_gen[f"q{ph}"] = 0
+                    each_gen[f"s{ph}_max"] = 0
+
+            each_gen["phases"] = phases
+
+            each_gen["qa_max"] = (None,)
+            each_gen["qb_max"] = (None,)
+            each_gen["qc_max"] = (None,)
+            each_gen["qa_min"] = (None,)
+            each_gen["qb_min"] = (None,)
+            each_gen["qc_min"] = (None,)
+
+            gen_data.append(each_gen)
+            pv_flag = self.dss.PVsystems.Next()
+
         gen_df = pd.DataFrame(gen_data)
         if len(gen_data) < 1:
             gen_df = pd.DataFrame(
