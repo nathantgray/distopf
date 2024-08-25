@@ -27,7 +27,7 @@ from distopf.dssconverter.dssparser import DSSParser
 
 from distopf.cases import CASES_DIR
 
-from distopf.distOPF import DistOPFCase, create_model
+from distopf.distOPF import DistOPFCase, create_model, auto_solve
 
 SWING_FREE = "IN"
 PQ_FREE = "OUT"
