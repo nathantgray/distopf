@@ -481,6 +481,14 @@ class LinDistModelModular:
         if self.bus.bus_type[i] == SWING_BUS:  # Swing bus
             a_eq[vi, vi] = 1
             b_eq[vi] = self.bus.at[i, f"v_{a}"] ** 2
+
+        if self.reg is not None:
+            if j in self.reg.tb:
+                reg_ratio = self.reg.at[j, f"ratio_{a}"]
+                a_eq[vj, vj] = 1
+                a_eq[vj, vi] = -1 * reg_ratio ** 2
+                return a_eq, b_eq
+
         a_eq[vj, vj] = 1
         a_eq[vj, vi] = -1 * reg_ratio**2
         a_eq[vj, pij] = 2 * r[aa][i, j]
