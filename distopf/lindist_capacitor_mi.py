@@ -7,16 +7,10 @@ from numpy import sqrt, zeros
 from scipy.sparse import csr_matrix
 from distopf.lindist_base_modular import LinDistModelModular, get
 
-# bus_type options
-SWING_FREE = "IN"
-PQ_FREE = "OUT"
-SWING_BUS = "SWING"
-PQ_BUS = "PQ"
 
-
-class LinDistModelMI(LinDistModelModular):
+class LinDistModelCapMI(LinDistModelModular):
     """
-    LinDistFlow Model with DER Reactive Power Injection as control variables.
+    LinDistFlow Model with support for capacitor bank control.
 
     Parameters
     ----------
@@ -78,7 +72,7 @@ class LinDistModelMI(LinDistModelModular):
         a_eq[qc, zc] = -q_cap_nom
         return a_eq, b_eq
 
-    def create_inequality_constraints(self):
+    def create_capacitor_constraints(self):
         """
         Create inequality constraints for the optimization problem.
         """
@@ -116,6 +110,9 @@ class LinDistModelMI(LinDistModelModular):
                 ineq4 += 4
 
         return a_ineq, b_ineq
+
+    def create_inequality_constraints(self):
+        return self.create_capacitor_constraints()
 
     def get_zc(self, x):
         return self.get_device_variables(x, self.zc_map)

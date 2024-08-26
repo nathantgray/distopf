@@ -5,17 +5,8 @@ import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
 from scipy.sparse import csr_array, coo_array, dok_array, lil_array
+import distopf as opf
 
-# bus_type options
-SWING_FREE = "IN"
-PQ_FREE = "OUT"
-SWING_BUS = "SWING"
-PQ_BUS = "PQ"
-# generator mode options
-CONSTANT_PQ = "CONSTANT_PQ"
-CONSTANT_P = "CONSTANT_P"
-CONSTANT_Q = "CONSTANT_Q"
-CONTROL_PQ = "CONTROL_PQ"
 
 def get(s: pd.Series, i, default=None):
     """
@@ -351,14 +342,20 @@ class LinDistModelModular:
             q_min = -1 * (((s_rated**2) - (p_out**2)) ** (1 / 2))
             q_max = ((s_rated**2) - (p_out**2)) ** (1 / 2)
             for j in self.gen_buses[a]:
+                mode = self.gen.loc[j, f"{a}_mode"]
                 pg = self.idx("pg", j, a)
                 qg = self.idx("qg", j, a)
                 # active power bounds
                 x_lim_lower[pg] = 0
                 x_lim_upper[pg] = p_out[j]
                 # reactive power bounds
-                x_lim_lower[qg] = max(q_min[j], q_min_manual[j])
-                x_lim_upper[qg] = min(q_max[j], q_max_manual[j])
+                if mode == opf.CONSTANT_P:
+                    x_lim_lower[qg] = max(q_min[j], q_min_manual[j])
+                    x_lim_upper[qg] = min(q_max[j], q_max_manual[j])
+                if mode != opf.CONSTANT_P:
+                    # reactive power bounds
+                    x_lim_lower[qg] = max(-s_rated[j], q_min_manual[j])
+                    x_lim_upper[qg] = min(s_rated[j], q_max_manual[j])
         return x_lim_lower, x_lim_upper
 
     @cache
@@ -478,7 +475,7 @@ class LinDistModelModular:
         vi = self.idx("v", i, a)
         vj = self.idx("v", j, a)
         # Set V equation variable coefficients in a_eq and constants in b_eq
-        if self.bus.bus_type[i] == SWING_BUS:  # Swing bus
+        if self.bus.bus_type[i] == opf.SWING_BUS:  # Swing bus
             a_eq[vi, vi] = 1
             b_eq[vi] = self.bus.at[i, f"v_{a}"] ** 2
 
@@ -486,7 +483,7 @@ class LinDistModelModular:
             if j in self.reg.tb:
                 reg_ratio = self.reg.at[j, f"ratio_{a}"]
                 a_eq[vj, vj] = 1
-                a_eq[vj, vi] = -1 * reg_ratio ** 2
+                a_eq[vj, vi] = -1 * reg_ratio**2
                 return a_eq, b_eq
 
         a_eq[vj, vj] = 1
@@ -511,10 +508,10 @@ class LinDistModelModular:
         pg = self.idx("pg", j, a)
         qg = self.idx("qg", j, a)
         # Set Generator equation variable coefficients in a_eq
-        if get(self.gen[f"{a}_mode"], j, 0) in [CONSTANT_PQ, CONSTANT_P]:
+        if get(self.gen[f"{a}_mode"], j, 0) in [opf.CONSTANT_PQ, opf.CONSTANT_P]:
             a_eq[pg, pg] = 1
             b_eq[pg] = p_gen_nom
-        if get(self.gen[f"{a}_mode"], j, 0) in [CONSTANT_PQ, CONSTANT_Q]:
+        if get(self.gen[f"{a}_mode"], j, 0) in [opf.CONSTANT_PQ, opf.CONSTANT_Q]:
             a_eq[qg, qg] = 1
             b_eq[qg] = q_gen_nom
         return a_eq, b_eq
@@ -522,7 +519,7 @@ class LinDistModelModular:
     def add_load_model(self, a_eq, b_eq, j, phase):
         a = phase
         p_load_nom, q_load_nom = 0, 0
-        if self.bus.bus_type[j] == PQ_BUS:
+        if self.bus.bus_type[j] == opf.PQ_BUS:
             p_load_nom = self.bus[f"pl_{a}"][j]
             q_load_nom = self.bus[f"ql_{a}"][j]
         # equation indexes
@@ -530,7 +527,7 @@ class LinDistModelModular:
         ql = self.idx("ql", j, a)
         vj = self.idx("v", j, a)
         # boundary p and q
-        if self.bus.bus_type[j] != PQ_FREE:
+        if self.bus.bus_type[j] != opf.PQ_FREE:
             # Set Load equation variable coefficients in a_eq
             a_eq[pl, pl] = 1
             a_eq[pl, vj] = -(self.bus.cvr_p[j] / 2) * p_load_nom
@@ -550,6 +547,118 @@ class LinDistModelModular:
         a_eq[qc, qc] = 1
         a_eq[qc, vj] = -q_cap_nom
         return a_eq, b_eq
+
+    def create_inequality_constraints(self):
+        return self.create_octagon_constraints()
+
+    def create_hexagon_constraints(self):
+        """
+        Create inequality constraints for the optimization problem.
+        """
+
+        # ########## Aineq and Bineq Formation ###########
+        n_inequalities = 6
+        n_rows_ineq = n_inequalities * (
+            len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
+            + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
+            + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
+        )
+        a_ineq = zeros((n_rows_ineq, self.n_x))
+        b_ineq = zeros(n_rows_ineq)
+        ineq1 = 0
+        ineq2 = 1
+        ineq3 = 2
+        ineq4 = 3
+        ineq5 = 4
+        ineq6 = 5
+
+        for j in self.gen.index:
+            for a in "abc":
+                if not self.phase_exists(a, j):
+                    continue
+                if self.gen.loc[j, f"{a}_mode"] != "CONTROL_PQ":
+                    continue
+                pg = self.idx("pg", j, a)
+                qg = self.idx("qg", j, a)
+                s_rated = self.gen.at[j, f"s{a}_max"]
+                # equation indexes
+                a_ineq[ineq1, pg] = -sqrt(3)
+                a_ineq[ineq1, qg] = -1
+                b_ineq[ineq1] = sqrt(3) * s_rated
+                a_ineq[ineq2, pg] = sqrt(3)
+                a_ineq[ineq2, qg] = 1
+                b_ineq[ineq2] = sqrt(3) * s_rated
+                a_ineq[ineq3, qg] = -1
+                b_ineq[ineq3] = sqrt(3) / 2 * s_rated
+                a_ineq[ineq4, qg] = 1
+                b_ineq[ineq4] = sqrt(3) / 2 * s_rated
+                a_ineq[ineq5, pg] = sqrt(3)
+                a_ineq[ineq5, qg] = -1
+                b_ineq[ineq5] = sqrt(3) * s_rated
+                a_ineq[ineq6, pg] = -sqrt(3)
+                a_ineq[ineq6, qg] = 1
+                b_ineq[ineq6] = -sqrt(3) * s_rated
+                ineq1 += 6
+                ineq2 += 6
+                ineq3 += 6
+                ineq4 += 6
+                ineq5 += 6
+                ineq6 += 6
+
+        return a_ineq, b_ineq
+
+    def create_octagon_constraints(self):
+        """
+        Create inequality constraints for the optimization problem.
+        """
+
+        # ########## Aineq and Bineq Formation ###########
+        n_inequalities = 5
+
+        n_rows_ineq = n_inequalities * (
+            len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
+            + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
+            + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
+        )
+        a_ineq = zeros((n_rows_ineq, self.n_x))
+        b_ineq = zeros(n_rows_ineq)
+        ineq1 = 0
+        ineq2 = 1
+        ineq3 = 2
+        ineq4 = 3
+        ineq5 = 4
+
+        for j in self.gen.index:
+            for a in "abc":
+                if not self.phase_exists(a, j):
+                    continue
+                if self.gen.loc[j, f"{a}_mode"] != "CONTROL_PQ":
+                    continue
+                pg = self.idx("pg", j, a)
+                qg = self.idx("qg", j, a)
+                s_rated = self.gen.at[j, f"s{a}_max"]
+                # equation indexes
+                a_ineq[ineq1, pg] = sqrt(2)
+                a_ineq[ineq1, qg] = -2 + sqrt(2)
+                b_ineq[ineq1] = sqrt(2) * s_rated
+                a_ineq[ineq2, pg] = sqrt(2)
+                a_ineq[ineq2, qg] = 2 - sqrt(2)
+                b_ineq[ineq2] = sqrt(2) * s_rated
+                a_ineq[ineq3, pg] = -1 + sqrt(2)
+                a_ineq[ineq3, qg] = 1
+                b_ineq[ineq3] = s_rated
+                a_ineq[ineq4, pg] = -1 + sqrt(2)
+                a_ineq[ineq4, qg] = -1
+                b_ineq[ineq4] = s_rated
+                a_ineq[ineq5, pg] = -1
+                b_ineq[ineq5] = 0
+                ineq1 += n_inequalities
+                ineq2 += n_inequalities
+                ineq3 += n_inequalities
+                ineq4 += n_inequalities
+                ineq5 += n_inequalities
+
+        return a_ineq, b_ineq
 
     def parse_results(self, x, variable_name: str):
         values = pd.DataFrame(columns=["name", "a", "b", "c"])
@@ -646,6 +755,18 @@ class LinDistModelModular:
         return self._b_eq
 
     @property
+    def a_ub(self):
+        if self._a_ub is None:
+            self._a_ub, self._b_ub = self.create_inequality_constraints()
+        return self._a_ub
+
+    @property
+    def b_ub(self):
+        if self._b_ub is None:
+            self._a_ub, self._b_ub = self.create_inequality_constraints()
+        return self._b_ub
+
+    @property
     def bounds(self):
         if self._bounds is None:
             self._bounds = self.init_bounds()
@@ -662,4 +783,3 @@ class LinDistModelModular:
         if self._bounds is None:
             self._bounds = self.init_bounds()
         return self._bounds[:, 1]
-

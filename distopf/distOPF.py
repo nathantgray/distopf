@@ -331,7 +331,7 @@ class DistOPFCase(object):
         self.power_flows_df = None
         self.decision_variables_df = None
 
-    def run_pf(self):
+    def run_pf(self, raw_result=False):
         """
         Run the unconstrained power flow, save and plot the results.
         Returns
@@ -342,25 +342,26 @@ class DistOPFCase(object):
         bus_data = self.bus_data.copy()
         bus_data.loc[:, "v_min"] = 0.0
         bus_data.loc[:, "v_max"] = 2.0
+        gen_data = self.gen_data.copy()
+        gen_data.a_mode = "CONSTANT_PQ"
+        gen_data.b_mode = "CONSTANT_PQ"
+        gen_data.c_mode = "CONSTANT_PQ"
         # Create model
         self.model = create_model(
             "",
             branch_data=self.branch_data,
             bus_data=bus_data,
-            gen_data=self.gen_data,
+            gen_data=gen_data,
             cap_data=self.cap_data,
             reg_data=self.reg_data,
         )
         # Solve
         result = auto_solve(self.model)
+        if raw_result:
+            return result
 
         self.voltages_df = self.model.get_voltages(result.x)
         self.power_flows_df = self.model.get_apparent_power_flows(result.x)
-        fig1 = plot_network(
-            self.model, self.voltages_df, self.power_flows_df, show_reactive_power=False
-        )
-        fig2 = plot_power_flows(self.power_flows_df)
-        fig3 = plot_voltages(self.voltages_df)
 
         if self.save_inputs:
             config_parameters = {
@@ -407,17 +408,27 @@ class DistOPFCase(object):
             self.decision_variables_df.to_csv(
                 Path(self.output_dir) / "decision_variables.csv", index=False
             )
-        if self.save_plots:
-            fig1.write_html(self.output_dir / "network_plot.html")
-            fig2.write_html(self.output_dir / "power_flow_plot.html")
-            fig3.write_html(self.output_dir / "voltage_plot.html")
-        if self.show_plots:
-            fig1.show(renderer="browser")
-            fig2.show(renderer="browser")
-            fig3.show(renderer="browser")
+
+        if self.save_plots or self.show_plots:
+            fig1 = plot_network(
+                self.model,
+                self.voltages_df,
+                self.power_flows_df,
+                show_reactive_power=False,
+            )
+            fig2 = plot_power_flows(self.power_flows_df)
+            fig3 = plot_voltages(self.voltages_df)
+            if self.save_plots:
+                fig1.write_html(self.output_dir / "network_plot.html")
+                fig2.write_html(self.output_dir / "power_flow_plot.html")
+                fig3.write_html(self.output_dir / "voltage_plot.html")
+            if self.show_plots:
+                fig1.show(renderer="browser")
+                fig2.show(renderer="browser")
+                fig3.show(renderer="browser")
         return self.voltages_df, self.power_flows_df
 
-    def run(self):
+    def run(self, raw_result=False):
         """
         Run the optimization, save and plot the results.
         Returns
@@ -443,6 +454,8 @@ class DistOPFCase(object):
             target=self.target,
             error_percent=self.error_percent,
         )
+        if raw_result:
+            return result
 
         self.voltages_df = self.model.get_voltages(result.x)
         self.power_flows_df = self.model.get_apparent_power_flows(result.x)
