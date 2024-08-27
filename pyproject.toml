@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 [project]
 name = "distopf"
-version = "0.1.2"
+version = "0.1.2.dev"
 authors = [
   {  name="Nathan Gray", email="nathantgray@gmail.com" },
   {  name="Abodh Poudyal"},
