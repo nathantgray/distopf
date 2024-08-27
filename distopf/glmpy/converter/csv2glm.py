@@ -6,6 +6,7 @@ import csv
 from pathlib import Path
 import distopf as opf
 
+
 # from pandas.core.frame import DataFrame
 
 class Csv2glm:
@@ -554,7 +555,7 @@ class Csv2glm:
                 p = Path(self.gen_mult)
                 base_dir = p.parent
                 if self.gen_mult_for_p_max_only:
-                # if self.opf_model == "curtail":
+                    # if self.opf_model == "curtail":
                     # Create player for and I_in
                     player_file = base_dir / "players" / f"{name}_i_in.player"
                     self.make_player_file(
@@ -569,7 +570,7 @@ class Csv2glm:
                     )
                 return
                 # elif self.opf_model != "p_target":
-                    # Create player for P_Out
+                # Create player for P_Out
                 player_file = base_dir / "players" / f"{name}.player"
                 self.make_player_file(
                     self.gen_mult,
