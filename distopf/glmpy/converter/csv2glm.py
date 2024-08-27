@@ -59,7 +59,7 @@ class Csv2glm:
         else:
             self.cvr = None
         self.swing_index = bus_data.loc[bus_data.bus_type.str.contains(opf.SWING_BUS)].index[0]
-        self.swing_name = f"n{self.bus_data.at[self.swing_index, "name"]}"
+        self.swing_name = f"n{self.bus_data.at[self.swing_index, 'name']}"
         self.v_ln_base = bus_data.at[self.swing_index, "v_ln_base"]
         self.v_up = bus_data.loc[self.swing_index, ["v_a", "v_b", "v_c"]].to_numpy() * self.v_ln_base
         # self.s_dn_pu = s_dn_pu
@@ -304,7 +304,7 @@ class Csv2glm:
         if target_dict.get("meter") is None:
             target_dict["meter"] = {}
 
-        name = f"n{self.bus_data.at[i, "name"]}"
+        name = f"n{self.bus_data.at[i, 'name']}"
         cvr_p = self.bus_data.at[i, "cvr_p"]
         cvr_q = self.bus_data.at[i, "cvr_q"]
         loads = self.bus_data.loc[i, ["pl_a", "pl_b", "pl_c", "ql_a", "ql_b", "ql_c"]].to_numpy().flatten()
