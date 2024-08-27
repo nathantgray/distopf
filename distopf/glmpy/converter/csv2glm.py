@@ -40,6 +40,8 @@ class Csv2glm:
             starttime="'2001-08-01 12:00:00'",
             stoptime="'2001-08-01 12:00:00'",
     ):
+        self.output_name = Path(output_name)
+        self.base_dir = self.output_name.parent
         self.model_results_out_dir = Path(model_results_out_dir).as_posix()
         # ~~~~~~~~~~~~~~~~~~~~ Load Data Frames ~~~~~~~~~~~~~~~~~~~~
         self.branch_data = opf.handle_branch_input(branch_data)
@@ -59,7 +61,7 @@ class Csv2glm:
         else:
             self.cvr = None
         self.swing_index = bus_data.loc[bus_data.bus_type.str.contains(opf.SWING_BUS)].index[0]
-        self.swing_name = f"n{self.bus_data.at[self.swing_index, 'name']}"
+        self.swing_name = f"node_{self.bus_data.at[self.swing_index, 'name']}"
         self.v_ln_base = bus_data.at[self.swing_index, "v_ln_base"]
         self.v_up = bus_data.loc[self.swing_index, ["v_a", "v_b", "v_c"]].to_numpy() * self.v_ln_base
         # self.s_dn_pu = s_dn_pu
@@ -304,7 +306,7 @@ class Csv2glm:
         if target_dict.get("meter") is None:
             target_dict["meter"] = {}
 
-        name = f"n{self.bus_data.at[i, 'name']}"
+        name = f"node_{self.bus_data.at[i, 'name']}"
         cvr_p = self.bus_data.at[i, "cvr_p"]
         cvr_q = self.bus_data.at[i, "cvr_q"]
         loads = self.bus_data.loc[i, ["pl_a", "pl_b", "pl_c", "ql_a", "ql_b", "ql_c"]].to_numpy().flatten()
@@ -347,13 +349,13 @@ class Csv2glm:
 
     def make_const_load(self, bus_id, parent):
         target_dict = self.glm.model
-        i = bus_id - 1
-        s_base = self.bus_data.at[i, "s_base"]
-        p_l = self.bus_data.loc[i, ["pl_a", "pl_b", "pl_c"]] * s_base
-        q_l = self.bus_data.loc[i, ["ql_a", "ql_b", "ql_c"]] * s_base
+        j = bus_id - 1
+        s_base = self.bus_data.at[j, "s_base"]
+        p_l = self.bus_data.loc[j, ["pl_a", "pl_b", "pl_c"]] * s_base
+        q_l = self.bus_data.loc[j, ["ql_a", "ql_b", "ql_c"]] * s_base
         p_load = np.array(p_l)
         q_load = np.array(q_l)
-        phases = self.bus_data.at[i, "phases"]
+        phases = self.bus_data.at[j, "phases"]
         s_str = ["0", "0", "0"]
         if isinstance(self.load_mult, int) or isinstance(self.load_mult, float):
             p_load = p_load * self.load_mult
@@ -377,14 +379,13 @@ class Csv2glm:
                 isinstance(self.load_mult, int) or isinstance(self.load_mult, float)
         ):
             p = Path(self.load_mult)
-            base_dir = p.parent
-            for ph in "ABC":
-                player_file = base_dir / "players" / f"load_{int(bus_id)}{ph}.player"
+            for i_ph, ph in enumerate("ABC"):
+                player_file = self.base_dir / "players" / f"load_{int(bus_id)}{ph}.player"
                 self.make_player_file(
-                    self.load_mult, player_file, s, time_delta=self.multiplier_update_period // 60, time_delta_unit="m"
+                    self.load_mult, player_file, s[i_ph], time_delta=self.multiplier_update_period // 60, time_delta_unit="m"
                 )
                 self.make_player(
-                    parent, player_file.relative_to(base_dir), f"constant_power_{ph}"
+                    parent, player_file.relative_to(self.base_dir), f"constant_power_{ph}"
                 )
 
     def make_zip_load(self, bus_id, parent):
@@ -456,11 +457,10 @@ class Csv2glm:
 
         if self.load_mult is not None and not np.isscalar(self.load_mult):
             p = Path(self.load_mult)
-            base_dir = p.parent
             for index, ph in enumerate("ABC"):
                 # P Loads
                 player_file = (
-                        base_dir / "players" / f"load_{int(bus_id)}_p{ph}.player"
+                        self.base_dir / "players" / f"load_{int(bus_id)}_p{ph}.player"
                 ).as_posix()
                 self.make_player_file(
                     self.load_mult,
@@ -471,12 +471,12 @@ class Csv2glm:
                 )
                 self.make_player(
                     f"load_{int(bus_id)}_p",
-                    Path(player_file).relative_to(base_dir),
+                    Path(player_file).relative_to(self.base_dir),
                     f"base_power_{ph}",
                 )
                 # Q Loads
                 player_file = (
-                        base_dir / "players" / f"load_{int(bus_id)}_q{ph}.player"
+                        self.base_dir / "players" / f"load_{int(bus_id)}_q{ph}.player"
                 ).as_posix()
                 self.make_player_file(
                     self.load_mult,
@@ -487,25 +487,25 @@ class Csv2glm:
                 )
                 self.make_player(
                     f"load_{int(bus_id)}_q",
-                    Path(player_file).relative_to(base_dir),
+                    Path(player_file).relative_to(self.base_dir),
                     f"base_power_{ph}",
                 )
 
     def make_inverter(self, bus_id, parent):
 
-        i = bus_id - 1
-        s_base = self.bus_data.at[i, "s_base"]
-        p_max = self.gen_data.loc[i, ["pa", "pb", "pc"]] * s_base
+        j = bus_id - 1
+        s_base = self.bus_data.at[j, "s_base"]
+        p_max = self.gen_data.loc[j, ["pa", "pb", "pc"]] * s_base
         if self.p_gen_result is not None:
-            p_gen = self.p_gen_result.loc[i, ["a", "b", "c"]] * s_base
+            p_gen = self.p_gen_result.loc[j, ["a", "b", "c"]] * s_base
         else:
             p_gen = p_max
         if self.q_gen_result is not None:
-            q_gen = self.q_gen_result.loc[i, ["a", "b", "c"]] * s_base
+            q_gen = self.q_gen_result.loc[j, ["a", "b", "c"]] * s_base
         else:
-            q_gen = self.gen_data.loc[i, ["qa", "qb", "qc"]] * s_base
-        s_rated = self.gen_data.loc[i, ["sa_max", "sb_max", "sc_max"]] * s_base
-        phases = self.bus_data.at[i, "phases"]
+            q_gen = self.gen_data.loc[j, ["qa", "qb", "qc"]] * s_base
+        s_rated = self.gen_data.loc[j, ["sa_max", "sb_max", "sc_max"]] * s_base
+        phases = self.bus_data.at[j, "phases"]
 
         target_dict = self.glm.model
         if target_dict.get("inverter") is None:
@@ -553,11 +553,10 @@ class Csv2glm:
             }
             if self.gen_mult is not None and not np.isscalar(self.gen_mult):
                 p = Path(self.gen_mult)
-                base_dir = p.parent
                 if self.gen_mult_for_p_max_only:
                     # if self.opf_model == "curtail":
                     # Create player for and I_in
-                    player_file = base_dir / "players" / f"{name}_i_in.player"
+                    player_file = self.base_dir / "players" / f"{name}_i_in.player"
                     self.make_player_file(
                         self.gen_mult,
                         player_file,
@@ -566,44 +565,43 @@ class Csv2glm:
                         time_delta_unit="m",
                     )
                     self.make_player(
-                        name, player_file.relative_to(base_dir), "I_In"
+                        name, player_file.relative_to(self.base_dir), "I_In"
                     )
-                return
-                # elif self.opf_model != "p_target":
-                # Create player for P_Out
-                player_file = base_dir / "players" / f"{name}.player"
-                self.make_player_file(
-                    self.gen_mult,
-                    player_file,
-                    list(p_gen)[i],
-                    time_delta=self.multiplier_update_period // 60,
-                    time_delta_unit="m",
-                )
-                self.make_player(
-                    name, player_file.relative_to(base_dir), "P_Out"
-                )
-
-            if self.q_gen_mult is not None and not np.isscalar(self.q_gen_mult):
-                if type(self.q_gen_mult) in [list, tuple, np.ndarray]:
-                    p = Path(self.q_gen_mult[i])
-                    q_file_name = self.q_gen_mult[i]
                 else:
-                    p = Path(self.q_gen_mult)
-                    q_file_name = self.q_gen_mult
-                base_dir = p.parent
-                player_file = base_dir / "players" / f"{name}q.player"
-                q_lim = np.sqrt(
-                    (list(p_max)[i] * self.rating_mult) ** 2
-                    - list(p_max)[i] ** 2
-                )
-                self.make_player_file(
-                    q_file_name,
-                    player_file,
-                    list(q_gen)[i],
-                    time_delta=self.multiplier_update_period // 60,
-                    time_delta_unit="m",
-                )
-                self.make_player(name, player_file.relative_to(base_dir), "Q_Out")
+                    # elif self.opf_model != "p_target":
+                    # Create player for P_Out
+                    player_file = self.base_dir / "players" / f"{name}.player"
+                    self.make_player_file(
+                        self.gen_mult,
+                        player_file,
+                        list(p_gen)[i],
+                        time_delta=self.multiplier_update_period // 60,
+                        time_delta_unit="m",
+                    )
+                    self.make_player(
+                        name, player_file.relative_to(self.base_dir), "P_Out"
+                    )
+
+                    if self.q_gen_mult is not None and not np.isscalar(self.q_gen_mult):
+                        if type(self.q_gen_mult) in [list, tuple, np.ndarray]:
+                            p = Path(self.q_gen_mult[i])
+                            q_file_name = self.q_gen_mult[i]
+                        else:
+                            p = Path(self.q_gen_mult)
+                            q_file_name = self.q_gen_mult
+                        player_file = self.base_dir / "players" / f"{name}q.player"
+                        q_lim = np.sqrt(
+                            (list(p_max)[i] * self.rating_mult) ** 2
+                            - list(p_max)[i] ** 2
+                        )
+                        self.make_player_file(
+                            q_file_name,
+                            player_file,
+                            list(q_gen)[i],
+                            time_delta=self.multiplier_update_period // 60,
+                            time_delta_unit="m",
+                        )
+                        self.make_player(name, player_file.relative_to(self.base_dir), "Q_Out")
 
     # def make_bess_inverter(
     #         self, node_id, phases, p_rated, parent, p_gen=None, q_gen=None
@@ -634,7 +632,7 @@ class Csv2glm:
     #         f"{self.model_results_out_dir}/bess_inv_{int(node_id)}_meter.csv",
     #         "measured_power_A,measured_power_B,measured_power_C",
     #     )
-    #     for i, ph in enumerate("ABC"):
+    #     for i, ph in enumerate(["A", "B", "C"]):
     #         if ph in phases:
     #             name = f"bess_inv_{int(node_id)}{ph}"
     #             target_dict["inverter"][name] = {
@@ -720,10 +718,10 @@ class Csv2glm:
 
     def make_cap(self, bus_id, parent=None):
         target_dict = self.glm.model
-        i = bus_id - 1
-        s_base = self.bus_data.at[i, "s_base"]
-        q_cap = self.cap_data.loc[i, ["qa", "qb", "qc"]] * s_base
-        phases = self.bus_data.at[i, "phases"]
+        j = bus_id - 1
+        s_base = self.bus_data.at[j, "s_base"]
+        q_cap = self.cap_data.loc[j, ["qa", "qb", "qc"]] * s_base
+        phases = self.bus_data.at[j, "phases"]
         if target_dict.get("capacitor") is None:
             target_dict["capacitor"] = {}
 
@@ -794,8 +792,8 @@ class Csv2glm:
 
     def make_overhead_line(self, from_bus, to_bus, phases, config_name):
         target_dict = self.glm.model
-        from_name = f"n{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
-        to_name = f"n{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
         line_name = f"oh_line_{int(from_bus)}_{int(to_bus)}"
         if target_dict.get("overhead_line") is None:
             target_dict["overhead_line"] = {}
@@ -818,8 +816,8 @@ class Csv2glm:
             status OPEN;
         }
         """
-        from_name = f"n{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
-        to_name = f"n{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
         target_dict = self.glm.model
         link_name = f"switch_{int(from_bus)}_{int(to_bus)}"
         if target_dict.get("switch") is None:
@@ -861,8 +859,8 @@ class Csv2glm:
         tap_a = self.reg_data.loc[self.reg_data.tb == to_bus, "tap_a"].to_numpy()[0]
         tap_b = self.reg_data.loc[self.reg_data.tb == to_bus, "tap_b"].to_numpy()[0]
         tap_c = self.reg_data.loc[self.reg_data.tb == to_bus, "tap_c"].to_numpy()[0]
-        from_name = f"n{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
-        to_name = f"n{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
         link_name = f"regulator_{int(from_bus)}_{int(to_bus)}"
         config_name = f"regulator_config_{int(from_bus)}_{int(to_bus)}"
         if target_dict.get("regulator_configuration") is None:
