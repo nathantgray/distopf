@@ -793,8 +793,8 @@ class Csv2glm:
 
     def make_overhead_line(self, from_bus, to_bus, phases, config_name):
         target_dict = self.glm.model
-        from_name = f"n{self.bus_data.loc[self.bus_data.id == from_bus, "name"].to_numpy()[0]}"
-        to_name = f"n{self.bus_data.loc[self.bus_data.id == to_bus, "name"].to_numpy()[0]}"
+        from_name = f"n{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name = f"n{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
         line_name = f"oh_line_{int(from_bus)}_{int(to_bus)}"
         if target_dict.get("overhead_line") is None:
             target_dict["overhead_line"] = {}
@@ -817,8 +817,8 @@ class Csv2glm:
             status OPEN;
         }
         """
-        from_name = f"n{self.bus_data.loc[self.bus_data.id == from_bus, "name"].to_numpy()[0]}"
-        to_name = f"n{self.bus_data.loc[self.bus_data.id == to_bus, "name"].to_numpy()[0]}"
+        from_name = f"n{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name = f"n{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
         target_dict = self.glm.model
         link_name = f"switch_{int(from_bus)}_{int(to_bus)}"
         if target_dict.get("switch") is None:
@@ -860,8 +860,8 @@ class Csv2glm:
         tap_a = self.reg_data.loc[self.reg_data.tb == to_bus, "tap_a"].to_numpy()[0]
         tap_b = self.reg_data.loc[self.reg_data.tb == to_bus, "tap_b"].to_numpy()[0]
         tap_c = self.reg_data.loc[self.reg_data.tb == to_bus, "tap_c"].to_numpy()[0]
-        from_name = f"n{self.bus_data.loc[self.bus_data.id == from_bus, "name"].to_numpy()[0]}"
-        to_name = f"n{self.bus_data.loc[self.bus_data.id == to_bus, "name"].to_numpy()[0]}"
+        from_name = f"n{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name = f"n{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
         link_name = f"regulator_{int(from_bus)}_{int(to_bus)}"
         config_name = f"regulator_config_{int(from_bus)}_{int(to_bus)}"
         if target_dict.get("regulator_configuration") is None:
