@@ -1,6 +1,5 @@
 from distopf.glmpy.basic import Gridlabd
 import os
-import pandas as pd
 import numpy as np
 import csv
 from pathlib import Path
@@ -350,6 +349,7 @@ class Csv2glm:
     def make_const_load(self, bus_id, parent):
         target_dict = self.glm.model
         j = bus_id - 1
+        bus_name = f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
         s_base = self.bus_data.at[j, "s_base"]
         p_l = self.bus_data.loc[j, ["pl_a", "pl_b", "pl_c"]] * s_base
         q_l = self.bus_data.loc[j, ["ql_a", "ql_b", "ql_c"]] * s_base
@@ -367,7 +367,7 @@ class Csv2glm:
 
         if target_dict.get("load") is None:
             target_dict["load"] = {}
-        target_dict["load"][f"load_{int(bus_id)}"] = {
+        target_dict["load"][f"load_{bus_name}"] = {
             "parent": parent,
             "phases": phases.upper(),
             "nominal_voltage": str(self.v_ln_base),
@@ -380,17 +380,18 @@ class Csv2glm:
         ):
             p = Path(self.load_mult)
             for i_ph, ph in enumerate("ABC"):
-                player_file = self.base_dir / "players" / f"load_{int(bus_id)}{ph}.player"
+                player_file = self.base_dir / "players" / f"load_{bus_name}{ph}.player"
                 self.make_player_file(
                     self.load_mult, player_file, s[i_ph], time_delta=self.multiplier_update_period // 60, time_delta_unit="m"
                 )
                 self.make_player(
-                    parent, player_file.relative_to(self.base_dir), f"constant_power_{ph}"
+                    f"load_{bus_name}", player_file.relative_to(self.base_dir), f"constant_power_{ph}"
                 )
 
     def make_zip_load(self, bus_id, parent):
         target_dict = self.glm.model
         i = bus_id - 1
+        bus_name = f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
         s_base = self.bus_data.at[i, "s_base"]
         p_l = self.bus_data.loc[i, ["pl_a", "pl_b", "pl_c"]] * s_base
         q_l = self.bus_data.loc[i, ["ql_a", "ql_b", "ql_c"]] * s_base
@@ -408,7 +409,7 @@ class Csv2glm:
             q_load = q_load * self.load_mult
         if target_dict.get("load") is None:
             target_dict["load"] = {}
-        target_dict["load"][f"load_{int(bus_id)}_p"] = {
+        target_dict["load"][f"load_{bus_name}_p"] = {
             "parent": parent,
             "phases": phases.upper(),
             "nominal_voltage": str(self.v_ln_base),
@@ -431,7 +432,7 @@ class Csv2glm:
             "impedance_fraction_B": str(const_z[0]),
             "impedance_fraction_C": str(const_z[0]),
         }
-        target_dict["load"][f"load_{int(bus_id)}_q"] = {
+        target_dict["load"][f"load_{bus_name}_q"] = {
             "parent": parent,
             "phases": phases.upper(),
             "nominal_voltage": str(self.v_ln_base),
@@ -460,7 +461,7 @@ class Csv2glm:
             for index, ph in enumerate("ABC"):
                 # P Loads
                 player_file = (
-                        self.base_dir / "players" / f"load_{int(bus_id)}_p{ph}.player"
+                        self.base_dir / "players" / f"load_{bus_name}_p{ph}.player"
                 ).as_posix()
                 self.make_player_file(
                     self.load_mult,
@@ -470,13 +471,13 @@ class Csv2glm:
                     time_delta_unit="m",
                 )
                 self.make_player(
-                    f"load_{int(bus_id)}_p",
+                    f"load_{bus_name}_p",
                     Path(player_file).relative_to(self.base_dir),
                     f"base_power_{ph}",
                 )
                 # Q Loads
                 player_file = (
-                        self.base_dir / "players" / f"load_{int(bus_id)}_q{ph}.player"
+                        self.base_dir / "players" / f"load_{bus_name}_q{ph}.player"
                 ).as_posix()
                 self.make_player_file(
                     self.load_mult,
@@ -486,7 +487,7 @@ class Csv2glm:
                     time_delta_unit="m",
                 )
                 self.make_player(
-                    f"load_{int(bus_id)}_q",
+                    f"load_{bus_name}_q",
                     Path(player_file).relative_to(self.base_dir),
                     f"base_power_{ph}",
                 )
@@ -494,6 +495,7 @@ class Csv2glm:
     def make_inverter(self, bus_id, parent):
 
         j = bus_id - 1
+        bus_name = f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
         s_base = self.bus_data.at[j, "s_base"]
         p_max = self.gen_data.loc[j, ["pa", "pb", "pc"]] * s_base
         if self.p_gen_result is not None:
@@ -512,15 +514,15 @@ class Csv2glm:
             target_dict["inverter"] = {}
         if target_dict.get("meter") is None:
             target_dict["meter"] = {}
-        target_dict["meter"][f"inv_{int(bus_id)}_meter"] = {
+        target_dict["meter"][f"inv_{int(bus_name)}_meter"] = {
             "parent": parent,
             "phases": f"{phases.upper()}N",
             "nominal_voltage": str(self.v_ln_base),
         }
 
         self.make_recorder(
-            f"inv_{int(bus_id)}_meter",
-            f"{self.model_results_out_dir}/inv_{int(bus_id)}_meter.csv",
+            f"inv_{int(bus_name)}_meter",
+            f"{self.model_results_out_dir}/inv_{int(bus_name)}_meter.csv",
             "measured_power_A,measured_power_B,measured_power_C",
         )
 
@@ -536,9 +538,9 @@ class Csv2glm:
         for i, ph in enumerate("ABC"):
             if ph not in phases.upper():
                 continue
-            name = f"inv_{int(bus_id)}{ph}"
+            name = f"inv_{bus_name}{ph}"
             target_dict["inverter"][name] = {
-                "parent": f"inv_{int(bus_id)}_meter",
+                "parent": f"inv_{bus_name}_meter",
                 "phases": f"{ph}N".upper(),
                 "rated_power": str(list(s_rated)[i]),
                 "inverter_type": "FOUR_QUADRANT",
@@ -719,13 +721,14 @@ class Csv2glm:
     def make_cap(self, bus_id, parent=None):
         target_dict = self.glm.model
         j = bus_id - 1
+        bus_name = f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
         s_base = self.bus_data.at[j, "s_base"]
         q_cap = self.cap_data.loc[j, ["qa", "qb", "qc"]] * s_base
         phases = self.bus_data.at[j, "phases"]
         if target_dict.get("capacitor") is None:
             target_dict["capacitor"] = {}
 
-        name = f"cap_{int(bus_id)}"
+        name = f"cap_{bus_name}"
         target_dict["capacitor"][name] = {
             "phases": phases.upper(),
             "phases_connected": phases.upper(),
@@ -742,9 +745,13 @@ class Csv2glm:
         if parent is not None:
             target_dict["capacitor"][name]["parent"] = parent
 
-    def make_line_config(self, f_bus, to_bus, r_updiag, x_updiag):
+    def make_line_config(self, from_bus, to_bus, r_updiag, x_updiag):
         target_dict = self.glm.model
-        line_config_name = f"line_config_{int(f_bus)}_{int(to_bus)}"
+        from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        from_name_short = f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name_short = f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        line_config_name = f"line_config_{from_name_short}_{to_name_short}"
         if target_dict.get("line_configuration") is None:
             target_dict["line_configuration"] = {}
         z_bus = ["0"] * 6  # list of 9 zeros
@@ -794,7 +801,9 @@ class Csv2glm:
         target_dict = self.glm.model
         from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
         to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
-        line_name = f"oh_line_{int(from_bus)}_{int(to_bus)}"
+        from_name_short = f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name_short = f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        line_name = f"oh_line_{from_name_short}_{to_name_short}"
         if target_dict.get("overhead_line") is None:
             target_dict["overhead_line"] = {}
         target_dict["overhead_line"][str(line_name)] = {
@@ -818,8 +827,10 @@ class Csv2glm:
         """
         from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
         to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        from_name_short = f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name_short = f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
         target_dict = self.glm.model
-        link_name = f"switch_{int(from_bus)}_{int(to_bus)}"
+        link_name = f"switch_{from_name_short}_{to_name_short}"
         if target_dict.get("switch") is None:
             target_dict["switch"] = {}
         target_dict["switch"][str(link_name)] = {
@@ -861,8 +872,10 @@ class Csv2glm:
         tap_c = self.reg_data.loc[self.reg_data.tb == to_bus, "tap_c"].to_numpy()[0]
         from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
         to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
-        link_name = f"regulator_{int(from_bus)}_{int(to_bus)}"
-        config_name = f"regulator_config_{int(from_bus)}_{int(to_bus)}"
+        from_name_short = f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        to_name_short = f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        link_name = f"regulator_{from_name_short}_{to_name_short}"
+        config_name = f"regulator_config_{from_name_short}_{to_name_short}"
         if target_dict.get("regulator_configuration") is None:
             target_dict["regulator_configuration"] = {}
 
@@ -902,10 +915,10 @@ class Csv2glm:
             w = csv.writer(
                 f, delimiter=",", quoting=csv.QUOTE_NONE, lineterminator="\n"
             )
-            w.writerow([starttime, base_value * mult[0]])
+            w.writerow([starttime, str(base_value * mult[0]).strip("()")])
             dt = f"+{int(time_delta)}{time_delta_unit}"
             for i in range(1, len(mult)):
-                w.writerow([dt, base_value * mult[i]])
+                w.writerow([dt, str(base_value * mult[i]).strip("()")])
 
     def make_player(self, parent, file_name, prop):
         target_dict = self.glm.model
