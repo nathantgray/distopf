@@ -260,6 +260,36 @@ class DSSParser:
 
             return np.real(z_matrix), np.imag(z_matrix)
 
+    def _get_reactor_zmatrix(self) -> tuple[np.ndarray, np.ndarray]:
+        """Returns the z_matrix of a specified reactor element.
+
+        Returns:
+            real z_matrix, imag z_matrix (np.ndarray, np.ndarray): 3x3 numpy array of the z_matrix corresponding to the each of the phases(real,imag)
+        """
+        n_phases = self.dss.Reactors.Phases()
+        if n_phases == 3:
+            return np.eye(3)*self.dss.Reactors.R(), np.eye(3)*self.dss.Reactors.X()
+
+        else:
+            # for other than 3 phases
+            raise NotImplemented("Parsing reactors with phases other than 3 not implemented")
+            # active_phases = [
+            #     int(phase) for phase in self.dss.CktElement.BusNames()[0].split(".")[1:]
+            # ]
+            # z_matrix = np.zeros((3, 3), dtype=complex)
+            # r_matrix = self.dss.Reactors.R()
+            # x_matrix = self.dss.Reactors.X()
+            # counter = 0
+            # for _, row in enumerate(active_phases):
+            #     for _, col in enumerate(active_phases):
+            #         z_matrix[row - 1, col - 1] = (
+            #             complex(r_matrix[counter], x_matrix[counter])
+            #             * self.dss.Lines.Length()
+            #         )
+            #         counter = counter + 1
+
+            return np.real(z_matrix), np.imag(z_matrix)
+
     def _get_powers(self):
         n_phases = self.dss.CktElement.NumPhases()
         pq = np.array(self.dss.CktElement.Powers())
@@ -293,7 +323,7 @@ class DSSParser:
             s_out = self._get_powers()
             z_matrix_real = np.zeros((3, 3))
             z_matrix_imag = np.zeros((3, 3))
-            if element_type not in ["line", "transformer"]:
+            if element_type not in ["line", "transformer", "reactor"]:
                 flag = self.dss.PDElements.Next()
                 continue
             if element_type == "transformer":
@@ -378,6 +408,9 @@ class DSSParser:
                         )
                         else "CLOSED"
                     )
+            if element_type == "reactor":
+                element_name = self.dss.Reactors.Name()
+                z_matrix_real, z_matrix_imag = self._get_reactor_zmatrix()
             bus1 = self.dss.CktElement.BusNames()[0].split(".")[0]
             bus2 = self.dss.CktElement.BusNames()[1].split(".")[0]
             self.dss.Circuit.SetActiveBus(bus2)
@@ -761,6 +794,16 @@ class DSSParser:
                 }
             )
 
+        cap_df = cap_df.groupby(by=["id"], as_index=False).agg(
+            dict(
+                id="first",
+                name="first",
+                qa="sum",
+                qb="sum",
+                qc="sum",
+                phases="sum",
+            )
+        )
         return cap_df
 
     def get_reg_data(self) -> pd.DataFrame:
