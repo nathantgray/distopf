@@ -95,7 +95,7 @@ class LinDistModelCapacitorRegulatorMI(opf.LinDistModelCapMI):
             + len(self.reg_buses["c"])
         )
         default_tap = np.zeros((max(n_u_reg, 1), 33))
-        default_tap[:, 17] = 1
+        default_tap[:, 16] = 1
         self.u_reg = cp.Variable(
             shape=(max(n_u_reg, 1), 33), name="u_reg", value=default_tap, boolean=True
         )
@@ -127,6 +127,22 @@ class LinDistModelCapacitorRegulatorMI(opf.LinDistModelCapMI):
                     ]
                 i_reg += 1
         return g_reg
+
+    def get_regulator_taps(self):
+        reg_result = self.reg.copy()
+        i_reg = 0
+        for j in self.reg.index:
+            for a in "abc":
+                if not self.phase_exists(a, j):
+                    continue
+                tap_index = int(np.where(np.round(self.u_reg.value[i_reg, :]).astype(bool))[0][0])
+                tap = tap_index - 16
+                ratio = self.b_i[tap_index]
+                reg_result.loc[j, f"tap_{a}"] = int(tap)
+                reg_result.loc[j, f"ratio_{a}"] = ratio
+                i_reg += 1
+        return reg_result
+
 
     @classmethod
     def calculate_x0(cls, branch_data, bus_data, gen_data, cap_data, reg_data):

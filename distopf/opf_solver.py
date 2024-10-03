@@ -310,7 +310,8 @@ def cvxpy_solve(
     ub = [x[i] <= m.bounds[i][1] for i in range(m.n_x)]
     g_inequality = []
     if m.a_ub is not None and m.b_ub is not None:
-        g_inequality = [m.a_ub @ x - m.b_ub <= 0]
+        if m.a_ub.shape[0] != 0 and m.a_ub.shape[1] != 0:
+            g_inequality = [m.a_ub @ x - m.b_ub <= 0]
     error_percent = kwargs.get("error_percent", np.zeros(3))
     target = kwargs.get("target", None)
     expression = obj_func(m, x, target=target, error_percent=error_percent)
