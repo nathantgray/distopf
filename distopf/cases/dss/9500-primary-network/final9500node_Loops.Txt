@@ -1,0 +1,17 @@
+Loops and Paralleled Lines in all EnergyMeter Zones
+
+(m1) Line.CAP_1C: PARALLEL WITH Line.cap_1b
+(m1) Line.CAP_1C: LOOPED TO     Line.cap_1b
+(m1) Line.CAP_2C: PARALLEL WITH Line.cap_2b
+(m1) Line.CAP_2C: LOOPED TO     Line.cap_2b
+(m1) Transformer.VREG3_C: LOOPED TO     Transformer.vreg3_b
+(m1) Transformer.VREG3_B: LOOPED TO     Transformer.vreg3_c
+(m1) Transformer.VREG3_A: LOOPED TO     Transformer.vreg3_c
+(m1) Line.CAP_2B: PARALLEL WITH Line.ln5563942-5
+(m1) Line.CAP_2B: LOOPED TO     Line.ln5563942-5
+(m1) Line.CAP_2A: PARALLEL WITH Line.ln5563942-5
+(m1) Line.CAP_2A: LOOPED TO     Line.ln5563942-5
+(m1) Line.CAP_1B: PARALLEL WITH Line.ln5513564-2
+(m1) Line.CAP_1B: LOOPED TO     Line.ln5513564-2
+(m1) Line.CAP_1A: PARALLEL WITH Line.ln5513564-2
+(m1) Line.CAP_1A: LOOPED TO     Line.ln5513564-2

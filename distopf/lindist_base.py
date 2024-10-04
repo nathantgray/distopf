@@ -188,6 +188,7 @@ class LinDistModel:
 
         # ~~~~~~~~~~~~~~~~~~~~ initialize Aeq and beq ~~~~~~~~~~~~~~~~~~~~
         self.a_eq, self.b_eq = self.create_model()
+        self.a_ub, self.b_ub = None, None
         self.bounds = self.init_bounds(self.bus, self.gen)
 
     @staticmethod

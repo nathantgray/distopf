@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import cache
 from pathlib import Path
-
+import networkx as nx
 import numpy as np
 import opendssdirect as dss
 import pandas as pd
@@ -21,11 +21,14 @@ class DSSParser:
         self.dss = dss
         self.dssfile = dssfile
         self.dss.Text.Command(f"Redirect {self.dssfile}")
+        # if self.dss.Topology.NumLoops() > 0:
+        #     raise ValueError("Toplogy must be radial; topology has .")
         self.s_base = s_base
         self.v_min = v_min
         self.v_max = v_max
         self.cvr_p = cvr_p
         self.cvr_q = cvr_q
+        self.bus_names = self.get_bus_names()
         # get dataframes and results
         self.branch_data = self.get_branch_data()
         self.bus_data = self.get_bus_data()
@@ -37,6 +40,7 @@ class DSSParser:
 
     def update(self) -> None:
         self.dss.Solution.Solve()
+        self.bus_names = self.get_bus_names()
         # get dataframes and results
         self.branch_data = self.get_branch_data()
         self.bus_data = self.get_bus_data()
@@ -46,15 +50,32 @@ class DSSParser:
         self.v_solved = self.get_v_solved()
         self.s_solved = self.get_apparent_power_flows()
 
-    @property
+
     @cache
-    def bus_names(self) -> list[str]:
+    def get_bus_names(self) -> list[str]:
         """Access all the bus (node) names from the circuit
 
         Returns:
             list[str]: list of all the bus names
         """
-        return self.dss.Circuit.AllBusNames()
+
+        flag = self.dss.PDElements.First()
+        branches = []
+        while flag:
+            element_type = self.dss.CktElement.Name().lower().split(".")[0]
+            if element_type not in ["line", "transformer", "reactor"]:
+                flag = self.dss.PDElements.Next()
+                continue
+            bus1 = self.dss.CktElement.BusNames()[0].split(".")[0]
+            bus2 = self.dss.CktElement.BusNames()[1].split(".")[0]
+            branches.append((bus1, bus2))
+            self.dss.Circuit.SetActiveBus(bus2)
+            flag = self.dss.PDElements.Next()
+        g = nx.Graph()
+        g.add_edges_from(set(branches))
+        node_list = nx.dfs_preorder_nodes(g, self.source)
+        node_list = list(node_list)
+        return node_list
 
     @property
     @cache
@@ -64,7 +85,8 @@ class DSSParser:
         Returns:
             dict[str,int]: dictionary with key as bus names and value as its index
         """
-        return {bus: index + 1 for index, bus in enumerate(self.bus_names)}
+        _map = {bus: index + 1 for index, bus in enumerate(self.bus_names)}
+        return _map
 
     def bus_names_to_index_map_fun(self, bus: str) -> int:
         return self.bus_names_to_index_map[bus]
@@ -88,7 +110,8 @@ class DSSParser:
             str: returns the source bus of the circuit
         """
         # typically the first bus is the source bus
-        return self.bus_names[0]
+        self.dss.Vsources.First()
+        return self.dss.CktElement.BusNames()[0].split(".")[0]
 
     @property
     # @cache
@@ -260,6 +283,36 @@ class DSSParser:
 
             return np.real(z_matrix), np.imag(z_matrix)
 
+    def _get_reactor_zmatrix(self) -> tuple[np.ndarray, np.ndarray]:
+        """Returns the z_matrix of a specified reactor element.
+
+        Returns:
+            real z_matrix, imag z_matrix (np.ndarray, np.ndarray): 3x3 numpy array of the z_matrix corresponding to the each of the phases(real,imag)
+        """
+        n_phases = self.dss.Reactors.Phases()
+        if n_phases == 3:
+            return np.eye(3)*self.dss.Reactors.R(), np.eye(3)*self.dss.Reactors.X()
+
+        else:
+            # for other than 3 phases
+            raise NotImplemented("Parsing reactors with phases other than 3 not implemented")
+            # active_phases = [
+            #     int(phase) for phase in self.dss.CktElement.BusNames()[0].split(".")[1:]
+            # ]
+            # z_matrix = np.zeros((3, 3), dtype=complex)
+            # r_matrix = self.dss.Reactors.R()
+            # x_matrix = self.dss.Reactors.X()
+            # counter = 0
+            # for _, row in enumerate(active_phases):
+            #     for _, col in enumerate(active_phases):
+            #         z_matrix[row - 1, col - 1] = (
+            #             complex(r_matrix[counter], x_matrix[counter])
+            #             * self.dss.Lines.Length()
+            #         )
+            #         counter = counter + 1
+
+            return np.real(z_matrix), np.imag(z_matrix)
+
     def _get_powers(self):
         n_phases = self.dss.CktElement.NumPhases()
         pq = np.array(self.dss.CktElement.Powers())
@@ -293,7 +346,7 @@ class DSSParser:
             s_out = self._get_powers()
             z_matrix_real = np.zeros((3, 3))
             z_matrix_imag = np.zeros((3, 3))
-            if element_type not in ["line", "transformer"]:
+            if element_type not in ["line", "transformer", "reactor"]:
                 flag = self.dss.PDElements.Next()
                 continue
             if element_type == "transformer":
@@ -378,6 +431,9 @@ class DSSParser:
                         )
                         else "CLOSED"
                     )
+            if element_type == "reactor":
+                element_name = self.dss.Reactors.Name()
+                z_matrix_real, z_matrix_imag = self._get_reactor_zmatrix()
             bus1 = self.dss.CktElement.BusNames()[0].split(".")[0]
             bus2 = self.dss.CktElement.BusNames()[1].split(".")[0]
             self.dss.Circuit.SetActiveBus(bus2)
@@ -391,10 +447,16 @@ class DSSParser:
                 active_phases = self.dss.CktElement.BusNames()[0].split(".")[1:]
                 active_phases = np.array(active_phases).astype(int) - 1
                 phases = "".join("abc"[i] for i in active_phases)
-
+            fb = self.bus_names_to_index_map[bus1]
+            tb = self.bus_names_to_index_map[bus2]
+            if fb > tb:
+                fb, tb = tb, fb
+                bus1, bus2 = bus2, bus1
             each_line = dict(
-                fb=self.bus_names_to_index_map[bus1],
-                tb=self.bus_names_to_index_map[bus2],
+                fb=fb,
+                tb=tb,
+                from_name=bus1,
+                to_name=bus2,
                 raa=z_matrix_real[0, 0] / z_base,
                 rab=z_matrix_real[0, 1] / z_base,
                 rac=z_matrix_real[0, 2] / z_base,
@@ -426,6 +488,8 @@ class DSSParser:
                 {
                     "fb": "max",
                     "tb": "max",
+                    "from_name": "sum",
+                    "to_name": "sum",
                     "raa": "sum",
                     "rab": "sum",
                     "rac": "sum",
@@ -589,8 +653,67 @@ class DSSParser:
             each_gen["qc_min"] = (None,)
 
             gen_data.append(each_gen)
-
             generator_flag = self.dss.Generators.Next()
+
+        pv_flag = self.dss.PVsystems.First()
+        while pv_flag:
+            bus_phases = self.dss.CktElement.BusNames()[0].split(".")[1:]
+            n_phases = len(bus_phases)
+            if len(bus_phases) == 0 or len(bus_phases) >= 3:
+                n_phases = 3
+            active_phases = np.array([0, 1, 2])
+            if n_phases < 3:
+                active_phases = (
+                    np.array(self.dss.CktElement.BusNames()[0].split(".")[1:]).astype(
+                        int
+                    )
+                    - 1
+                )
+
+            active_power_per_phase = (
+                self.dss.PVsystems.Pmpp() / n_phases * 1000
+            ) / s_base
+            reactive_power_per_phase = (
+                self.dss.PVsystems.kvar() / n_phases * 1000
+            ) / s_base
+            apparent_power_rating = (
+                self.dss.PVsystems.kVARated() / n_phases * 1000 / s_base
+            )
+            gen_name = self.dss.PVsystems.Name()
+            bus_name = self.dss.CktElement.BusNames()[0].split(".")[0]
+            each_gen = dict(
+                id=self.bus_names_to_index_map[bus_name],
+                name=gen_name,
+            )
+            phases = ""
+            for phase_id in active_phases:
+                ph = "abc"[phase_id]
+                each_gen[f"p{ph}"] = active_power_per_phase
+                phases = phases + ph
+            for phase_id in active_phases:
+                ph = "abc"[phase_id]
+                each_gen[f"q{ph}"] = reactive_power_per_phase
+            for phase_id in active_phases:
+                ph = "abc"[phase_id]
+                each_gen[f"s{ph}_max"] = apparent_power_rating
+            for ph in "abc":
+                if ph not in phases:
+                    each_gen[f"p{ph}"] = 0
+                    each_gen[f"q{ph}"] = 0
+                    each_gen[f"s{ph}_max"] = 0
+
+            each_gen["phases"] = phases
+
+            each_gen["qa_max"] = (None,)
+            each_gen["qb_max"] = (None,)
+            each_gen["qc_max"] = (None,)
+            each_gen["qa_min"] = (None,)
+            each_gen["qb_min"] = (None,)
+            each_gen["qc_min"] = (None,)
+
+            gen_data.append(each_gen)
+            pv_flag = self.dss.PVsystems.Next()
+
         gen_df = pd.DataFrame(gen_data)
         if len(gen_data) < 1:
             gen_df = pd.DataFrame(
@@ -702,6 +825,16 @@ class DSSParser:
                 }
             )
 
+        cap_df = cap_df.groupby(by=["id"], as_index=False).agg(
+            dict(
+                id="first",
+                name="first",
+                qa="sum",
+                qb="sum",
+                qc="sum",
+                phases="sum",
+            )
+        )
         return cap_df
 
     def get_reg_data(self) -> pd.DataFrame:

@@ -5,8 +5,15 @@ import cvxpy as cp
 import numpy as np
 from scipy.optimize import OptimizeResult, linprog
 from scipy.sparse import csr_array
-
-from distopf import LinDistModelQ, LinDistModelP, LinDistModel
+import distopf as opf
+from distopf import (
+    LinDistModelPQ,
+    LinDistModelQ,
+    LinDistModelP,
+    LinDistModel,
+    LinDistModelModular,
+    LinDistModelCapMI,
+)
 
 
 def gradient_load_min(model: LinDistModel) -> np.ndarray:
@@ -116,7 +123,7 @@ def cp_obj_target_p_3ph(
 
 
 def cp_obj_target_p_total(
-    model: LinDistModel, xk: cp.Variable, **kwargs
+    model: LinDistModel | LinDistModelModular, xk: cp.Variable, **kwargs
 ) -> cp.Expression:
     """
 
@@ -215,7 +222,29 @@ def cp_obj_target_q_total(
     return f
 
 
-def cp_obj_curtail(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression:
+# def cp_obj_curtail(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression:
+#     """
+#     Objective function to minimize curtailment of DERs.
+#     Min sum((P_der_max - P_der)^2)
+#     Parameters
+#     ----------
+#     model : LinDistModel, or LinDistModelP, or LinDistModelQ
+#     xk : cp.Variable
+#
+#     Returns
+#     -------
+#     f: cp.Expression
+#         Expression to be minimized
+#     """
+#     f = cp.Constant(0)
+#     for i in range(model.ctr_var_start_idx, model.n_x):
+#         f += (model.bounds[i][1] - xk[i]) ** 2
+#     return f
+
+
+def cp_obj_curtail(
+    model: LinDistModelModular, xk: cp.Variable, **kwargs
+) -> cp.Expression:
     """
     Objective function to minimize curtailment of DERs.
     Min sum((P_der_max - P_der)^2)
@@ -229,10 +258,12 @@ def cp_obj_curtail(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Express
     f: cp.Expression
         Expression to be minimized
     """
-    f = cp.Constant(0)
-    for i in range(model.ctr_var_start_idx, model.n_x):
-        f += (model.bounds[i][1] - xk[i]) ** 2
-    return f
+    all_pg_idx = np.r_[
+        model.pg_map["a"].to_numpy(),
+        model.pg_map["b"].to_numpy(),
+        model.pg_map["c"].to_numpy(),
+    ]
+    return cp.sum((model.x_max[all_pg_idx] - xk[all_pg_idx]) ** 2)
 
 
 def cp_obj_none(*args, **kwargs) -> cp.Constant:
@@ -247,7 +278,7 @@ def cp_obj_none(*args, **kwargs) -> cp.Constant:
 
 
 def cvxpy_solve(
-    model: LinDistModel,
+    model: LinDistModel | LinDistModelPQ,
     obj_func: Callable,
     **kwargs,
 ) -> OptimizeResult:
@@ -274,13 +305,17 @@ def cvxpy_solve(
             raise ValueError(lin_res.message)
         x0 = lin_res.x.copy()
     x = cp.Variable(shape=(m.n_x,), name="x", value=x0)
-    g = [csr_array(m.a_eq) @ x - m.b_eq.flatten() == 0]
+    g = [m.a_eq @ x - m.b_eq.flatten() == 0]
     lb = [x[i] >= m.bounds[i][0] for i in range(m.n_x)]
     ub = [x[i] <= m.bounds[i][1] for i in range(m.n_x)]
+    g_inequality = []
+    if m.a_ub is not None and m.b_ub is not None:
+        if m.a_ub.shape[0] != 0 and m.a_ub.shape[1] != 0:
+            g_inequality = [m.a_ub @ x - m.b_ub <= 0]
     error_percent = kwargs.get("error_percent", np.zeros(3))
     target = kwargs.get("target", None)
     expression = obj_func(m, x, target=target, error_percent=error_percent)
-    prob = cp.Problem(cp.Minimize(expression), g + ub + lb)
+    prob = cp.Problem(cp.Minimize(expression), g + g_inequality + ub + lb)
     prob.solve(verbose=False, solver=solver)
 
     x_res = x.value
@@ -293,6 +328,72 @@ def cvxpy_solve(
         runtime=perf_counter() - tic,
     )
     return result
+
+
+def cvxpy_mi_solve(
+    model: LinDistModelCapMI,
+    obj_func: Callable,
+    **kwargs,
+) -> OptimizeResult:
+    """
+    Solve a convex optimization problem using cvxpy.
+    Parameters
+    ----------
+    model : LinDistModel, or LinDistModelP, or LinDistModelQ
+    obj_func : handle to the objective function
+    kwargs :
+
+    Returns
+    -------
+    result: scipy.optimize.OptimizeResult
+
+    """
+    m = model
+    tic = perf_counter()
+    solver = kwargs.get("solver", cp.GUROBI)
+    x0 = kwargs.get("x0", None)
+    if x0 is None:
+        lin_res = lp_solve(m, np.zeros(m.n_x))
+        if not lin_res.success:
+            raise ValueError(lin_res.message)
+        x0 = lin_res.x.copy()
+    x = cp.Variable(shape=(m.n_x,), name="x", value=x0)
+    n_u = len(m.cap_buses["a"]) + len(m.cap_buses["b"]) + len(m.cap_buses["c"])
+    u_c = cp.Variable(shape=(n_u,), name="u_c", value=np.ones(n_u), boolean=True)
+    u_idxs = np.r_[m.uc_map["a"], m.uc_map["b"], m.uc_map["c"]]
+    gu = [x[u_idxs] == u_c]
+    g_ineq = [csr_array(m.a_ineq) @ x - m.b_ineq.flatten() <= 0]
+    g = [csr_array(m.a_eq) @ x - m.b_eq.flatten() == 0]
+    lb = [x[i] >= m.bounds[i][0] for i in range(m.n_x)]
+    ub = [x[i] <= m.bounds[i][1] for i in range(m.n_x)]
+
+    error_percent = kwargs.get("error_percent", np.zeros(3))
+    target = kwargs.get("target", None)
+    expression = obj_func(m, x, target=target, error_percent=error_percent)
+    prob = cp.Problem(cp.Minimize(expression), g + ub + lb + gu + g_ineq)
+    prob.solve(verbose=False, solver=solver)
+
+    x_res = x.value
+    result = OptimizeResult(
+        fun=prob.value,
+        success=(prob.status == "optimal"),
+        message=prob.status,
+        x=x_res,
+        nit=prob.solver_stats.num_iters,
+        runtime=perf_counter() - tic,
+    )
+    return result
+
+
+def pf(model) -> OptimizeResult:
+    c = np.zeros(model.n_x)
+    tic = perf_counter()
+    res = linprog(c, A_eq=csr_array(model.a_eq), b_eq=model.b_eq.flatten())
+    if not res.success:
+        raise ValueError(res.message)
+    runtime = perf_counter() - tic
+    res["runtime"] = runtime
+    return res
 
 
 def lp_solve(model: LinDistModel, c: np.ndarray = None) -> OptimizeResult:

@@ -19,6 +19,11 @@ print(result.fun)
 v = model.get_voltages(result.x)
 s = model.get_apparent_power_flows(result.x)
 dec_var = model.get_decision_variables(result.x)
-opf.plot_network(model, v, s, dec_var, "Q").show(renderer="browser")
+fig = opf.plot_network(model, v, s, dec_var, "Q").show(renderer="browser")
 opf.plot_voltages(v).show(renderer="browser")
 opf.plot_power_flows(s).show(renderer="browser")
+
+fig.write_image("123_plot.pdf", format="pdf", width=1000, height=1000)
+import time
+time.sleep(1)
+fig.write_image("123_plot.pdf", format="pdf", width=1000, height=1000)
