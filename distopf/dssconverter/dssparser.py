@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import cache
 from pathlib import Path
-
+import networkx as nx
 import numpy as np
 import opendssdirect as dss
 import pandas as pd
@@ -21,11 +21,14 @@ class DSSParser:
         self.dss = dss
         self.dssfile = dssfile
         self.dss.Text.Command(f"Redirect {self.dssfile}")
+        # if self.dss.Topology.NumLoops() > 0:
+        #     raise ValueError("Toplogy must be radial; topology has .")
         self.s_base = s_base
         self.v_min = v_min
         self.v_max = v_max
         self.cvr_p = cvr_p
         self.cvr_q = cvr_q
+        self.bus_names = self.get_bus_names()
         # get dataframes and results
         self.branch_data = self.get_branch_data()
         self.bus_data = self.get_bus_data()
@@ -37,6 +40,7 @@ class DSSParser:
 
     def update(self) -> None:
         self.dss.Solution.Solve()
+        self.bus_names = self.get_bus_names()
         # get dataframes and results
         self.branch_data = self.get_branch_data()
         self.bus_data = self.get_bus_data()
@@ -46,15 +50,32 @@ class DSSParser:
         self.v_solved = self.get_v_solved()
         self.s_solved = self.get_apparent_power_flows()
 
-    @property
+
     @cache
-    def bus_names(self) -> list[str]:
+    def get_bus_names(self) -> list[str]:
         """Access all the bus (node) names from the circuit
 
         Returns:
             list[str]: list of all the bus names
         """
-        return self.dss.Circuit.AllBusNames()
+
+        flag = self.dss.PDElements.First()
+        branches = []
+        while flag:
+            element_type = self.dss.CktElement.Name().lower().split(".")[0]
+            if element_type not in ["line", "transformer", "reactor"]:
+                flag = self.dss.PDElements.Next()
+                continue
+            bus1 = self.dss.CktElement.BusNames()[0].split(".")[0]
+            bus2 = self.dss.CktElement.BusNames()[1].split(".")[0]
+            branches.append((bus1, bus2))
+            self.dss.Circuit.SetActiveBus(bus2)
+            flag = self.dss.PDElements.Next()
+        g = nx.Graph()
+        g.add_edges_from(set(branches))
+        node_list = nx.dfs_preorder_nodes(g, self.source)
+        node_list = list(node_list)
+        return node_list
 
     @property
     @cache
@@ -64,7 +85,8 @@ class DSSParser:
         Returns:
             dict[str,int]: dictionary with key as bus names and value as its index
         """
-        return {bus: index + 1 for index, bus in enumerate(self.bus_names)}
+        _map = {bus: index + 1 for index, bus in enumerate(self.bus_names)}
+        return _map
 
     def bus_names_to_index_map_fun(self, bus: str) -> int:
         return self.bus_names_to_index_map[bus]
@@ -88,7 +110,8 @@ class DSSParser:
             str: returns the source bus of the circuit
         """
         # typically the first bus is the source bus
-        return self.bus_names[0]
+        self.dss.Vsources.First()
+        return self.dss.CktElement.BusNames()[0].split(".")[0]
 
     @property
     # @cache
@@ -424,10 +447,16 @@ class DSSParser:
                 active_phases = self.dss.CktElement.BusNames()[0].split(".")[1:]
                 active_phases = np.array(active_phases).astype(int) - 1
                 phases = "".join("abc"[i] for i in active_phases)
-
+            fb = self.bus_names_to_index_map[bus1]
+            tb = self.bus_names_to_index_map[bus2]
+            if fb > tb:
+                fb, tb = tb, fb
+                bus1, bus2 = bus2, bus1
             each_line = dict(
-                fb=self.bus_names_to_index_map[bus1],
-                tb=self.bus_names_to_index_map[bus2],
+                fb=fb,
+                tb=tb,
+                from_name=bus1,
+                to_name=bus2,
                 raa=z_matrix_real[0, 0] / z_base,
                 rab=z_matrix_real[0, 1] / z_base,
                 rac=z_matrix_real[0, 2] / z_base,
@@ -459,6 +488,8 @@ class DSSParser:
                 {
                     "fb": "max",
                     "tb": "max",
+                    "from_name": "sum",
+                    "to_name": "sum",
                     "raa": "sum",
                     "rab": "sum",
                     "rac": "sum",
