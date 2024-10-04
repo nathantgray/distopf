@@ -207,6 +207,7 @@ def plot_ders(ders: pd.DataFrame) -> go.Figure:
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]).upper())
     return fig
 
+
 def plot_polar(p: pd.DataFrame, q: pd.DataFrame) -> go.Figure:
 
     p = p.melt(
@@ -223,11 +224,20 @@ def plot_polar(p: pd.DataFrame, q: pd.DataFrame) -> go.Figure:
         id_vars="name",
     )
     pq = pd.merge(p, q, on=["name", "phase"], how="outer")
-    pq["s"] = (pq.p.array + 1j*pq.q.array).astype(complex)
+    pq["s"] = (pq.p.array + 1j * pq.q.array).astype(complex)
     pq["r"] = np.abs(pq.s)
     pq["th"] = np.angle(pq.s, deg=True)
-    fig = px.scatter_polar(pq, r="r", theta="th", color="phase", range_theta=[-90,90], start_angle=0, direction="counterclockwise")
+    fig = px.scatter_polar(
+        pq,
+        r="r",
+        theta="th",
+        color="phase",
+        range_theta=[-90, 90],
+        start_angle=0,
+        direction="counterclockwise",
+    )
     return fig
+
 
 def plot_network(
     model: LinDistModel,

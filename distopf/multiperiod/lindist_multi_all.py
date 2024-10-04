@@ -78,6 +78,7 @@ def _handle_cap_input(cap_data: pd.DataFrame) -> pd.DataFrame:
     cap.index = cap.id.to_numpy() - 1
     return cap
 
+
 def _handle_loadshape_input(loadshape_data: pd.DataFrame) -> pd.DataFrame:
     if loadshape_data is None:
         return pd.DataFrame(
@@ -90,6 +91,7 @@ def _handle_loadshape_input(loadshape_data: pd.DataFrame) -> pd.DataFrame:
     loadshape.index = loadshape.time.to_numpy()
     return loadshape
 
+
 def _handle_pv_loadshape_input(pv_loadshape_data: pd.DataFrame) -> pd.DataFrame:
     if pv_loadshape_data is None:
         return pd.DataFrame(
@@ -101,6 +103,7 @@ def _handle_pv_loadshape_input(pv_loadshape_data: pd.DataFrame) -> pd.DataFrame:
     pv_loadshape = pv_loadshape_data.sort_values(by="time", ignore_index=True)
     pv_loadshape.index = pv_loadshape.time.to_numpy()
     return pv_loadshape
+
 
 def _handle_bat_input(bat_data: pd.DataFrame) -> pd.DataFrame:
     if bat_data is None:
@@ -131,6 +134,8 @@ def _handle_bat_input(bat_data: pd.DataFrame) -> pd.DataFrame:
         )
     bat = bat_data.sort_values(by="id", ignore_index=True)
     bat.index = bat.id.to_numpy() - 1
+
+
 def _handle_reg_input(reg_data: pd.DataFrame) -> pd.DataFrame:
     if reg_data is None:
         return pd.DataFrame(
@@ -212,7 +217,7 @@ class LinDistModel:
         reg_data: pd.DataFrame = None,
         loadshape_data: pd.DataFrame = None,
         pv_loadshape_data: pd.DataFrame = None,
-        bat_data: pd.DataFrame = None
+        bat_data: pd.DataFrame = None,
     ):
         # ~~~~~~~~~~~~~~~~~~~~ Load Data Frames ~~~~~~~~~~~~~~~~~~~~
         self.branch = _handle_branch_input(branch_data)
@@ -247,21 +252,44 @@ class LinDistModel:
             "c": self.bus.loc[self.bus.bus_type.str.contains(PQ_FREE)].index.to_numpy(),
         }
         # ~~ initialize index pointers ~~
-        self.nl_a, self.nl_b, self.nl_c, self.line_a, self.line_b, self.line_c, self.basic_length = self.basic_var_length(
-            self.branch)
+        (
+            self.nl_a,
+            self.nl_b,
+            self.nl_c,
+            self.line_a,
+            self.line_b,
+            self.line_c,
+            self.basic_length,
+        ) = self.basic_var_length(self.branch)
         if LinDistModelQ.der and LinDistModelQ.battery:
-            self.period = int(self.basic_length) + len(self.der_bus["a"]) + len(self.der_bus["b"]) + len(
-                self.der_bus["c"]) + \
-                          3 * len(self.battery_bus["a"]) + 3 * len(self.battery_bus["b"]) + 3 * len(
-                self.battery_bus["c"]) + 6*sum(self.bus.bus_type == PQ_FREE)
+            self.period = (
+                int(self.basic_length)
+                + len(self.der_bus["a"])
+                + len(self.der_bus["b"])
+                + len(self.der_bus["c"])
+                + 3 * len(self.battery_bus["a"])
+                + 3 * len(self.battery_bus["b"])
+                + 3 * len(self.battery_bus["c"])
+                + 6 * sum(self.bus.bus_type == PQ_FREE)
+            )
         elif LinDistModelQ.der:
-            self.period = int(self.basic_length) + len(self.der_bus["a"]) + len(self.der_bus["b"]) + len(
-                self.der_bus["c"]) + 6*sum(self.bus.bus_type == PQ_FREE)
+            self.period = (
+                int(self.basic_length)
+                + len(self.der_bus["a"])
+                + len(self.der_bus["b"])
+                + len(self.der_bus["c"])
+                + 6 * sum(self.bus.bus_type == PQ_FREE)
+            )
         elif LinDistModelQ.battery:
-            self.period = int(self.basic_length) + 3 * len(self.battery_bus["a"]) + 3 * len(
-                self.battery_bus["b"]) + 3 * len(self.battery_bus["c"]) + 6*sum(self.bus.bus_type == PQ_FREE)
+            self.period = (
+                int(self.basic_length)
+                + 3 * len(self.battery_bus["a"])
+                + 3 * len(self.battery_bus["b"])
+                + 3 * len(self.battery_bus["c"])
+                + 6 * sum(self.bus.bus_type == PQ_FREE)
+            )
         else:
-            self.period = int(self.basic_length) + 6*sum(self.bus.bus_type == PQ_FREE)
+            self.period = int(self.basic_length) + 6 * sum(self.bus.bus_type == PQ_FREE)
         self.x_maps, self.ctr_var_start_idx = self._variable_tables(self.branch)
         if LinDistModelQ.der and LinDistModelQ.battery:
             (
@@ -271,31 +299,65 @@ class LinDistModel:
                 self.pc_bat_start_phase_idx,
                 self.b_bat_start_phase_idx,
                 self.p_load_controlled,
-                self.q_load_controlled
-            ) = self._control_variables(self.der_bus, self.ctr_var_start_idx, self.battery_bus)
-            self.n_x = int(self.b_bat_start_phase_idx[LinDistModelQ.n - 1]["c"] + len(self.battery_bus["c"])) + 6*sum(self.bus.bus_type == PQ_FREE)
-            self.row_no = int(self.b_bat_start_phase_idx[LinDistModelQ.n - 1]["c"] + len(self.battery_bus["c"]))
+                self.q_load_controlled,
+            ) = self._control_variables(
+                self.der_bus, self.ctr_var_start_idx, self.battery_bus
+            )
+            self.n_x = int(
+                self.b_bat_start_phase_idx[LinDistModelQ.n - 1]["c"]
+                + len(self.battery_bus["c"])
+            ) + 6 * sum(self.bus.bus_type == PQ_FREE)
+            self.row_no = int(
+                self.b_bat_start_phase_idx[LinDistModelQ.n - 1]["c"]
+                + len(self.battery_bus["c"])
+            )
             self.a_eq, self.b_eq, self.a_ineq, self.b_ineq = self.create_model()
             self.bounds = self.init_bounds(self.bus, self.gen, self.bat)
         elif LinDistModelQ.der:
-            (self.p_der_start_phase_idx, self.q_der_start_phase_idx,p_load_controlled, q_load_controlled) = self._control_variables(self.der_bus,
-                                                                                               self.ctr_var_start_idx,
-                                                                                               self.battery_bus)
-            self.n_x = int(self.q_der_start_phase_idx[LinDistModelQ.n - 1]["c"] + len(self.der_bus["c"])) + 6*sum(self.bus.bus_type == PQ_FREE)
+            (
+                self.p_der_start_phase_idx,
+                self.q_der_start_phase_idx,
+                p_load_controlled,
+                q_load_controlled,
+            ) = self._control_variables(
+                self.der_bus, self.ctr_var_start_idx, self.battery_bus
+            )
+            self.n_x = int(
+                self.q_der_start_phase_idx[LinDistModelQ.n - 1]["c"]
+                + len(self.der_bus["c"])
+            ) + 6 * sum(self.bus.bus_type == PQ_FREE)
             self.row_no = int(self.x_maps[LinDistModelQ.n - 1]["c"].vj.max() + 1)
             self.a_eq, self.b_eq, self.a_ineq, self.b_ineq = self.create_model()
             self.bounds = self.init_bounds(self.bus, self.gen, self.bat)
         elif LinDistModelQ.battery:
-            (self.pd_bat_start_phase_idx, self.pc_bat_start_phase_idx,
-             self.b_bat_start_phase_idx,p_load_controlled, q_load_controlled) = self._control_variables(self.der_bus, self.ctr_var_start_idx,
-                                                                   self.battery_bus)
-            self.n_x = int(self.b_bat_start_phase_idx[LinDistModelQ.n - 1]["c"] + len(self.battery_bus["c"])) + 6*sum(self.bus.bus_type == PQ_FREE)
-            self.row_no = int(self.b_bat_start_phase_idx[LinDistModelQ.n - 1]["c"] + len(self.battery_bus["c"]))
+            (
+                self.pd_bat_start_phase_idx,
+                self.pc_bat_start_phase_idx,
+                self.b_bat_start_phase_idx,
+                p_load_controlled,
+                q_load_controlled,
+            ) = self._control_variables(
+                self.der_bus, self.ctr_var_start_idx, self.battery_bus
+            )
+            self.n_x = int(
+                self.b_bat_start_phase_idx[LinDistModelQ.n - 1]["c"]
+                + len(self.battery_bus["c"])
+            ) + 6 * sum(self.bus.bus_type == PQ_FREE)
+            self.row_no = int(
+                self.b_bat_start_phase_idx[LinDistModelQ.n - 1]["c"]
+                + len(self.battery_bus["c"])
+            )
             self.a_eq, self.b_eq, self.a_ineq, self.b_ineq = self.create_model()
             self.bounds = self.init_bounds(self.bus, self.gen, self.bat)
         else:
-            (p_load_controlled, q_load_controlled) = self._control_variables(self.der_bus, self.ctr_var_start_idx,self.battery_bus)
-            self.n_x = self.x_maps[LinDistModelQ.n - 1]["c"].vj.max() + 1 + 6*sum(self.bus.bus_type == PQ_FREE)
+            (p_load_controlled, q_load_controlled) = self._control_variables(
+                self.der_bus, self.ctr_var_start_idx, self.battery_bus
+            )
+            self.n_x = (
+                self.x_maps[LinDistModelQ.n - 1]["c"].vj.max()
+                + 1
+                + 6 * sum(self.bus.bus_type == PQ_FREE)
+            )
             self.row_no = int(self.x_maps[LinDistModelQ.n - 1]["c"].vj.max() + 1)
             self.a_eq, self.b_eq, self.a_ineq, self.b_ineq = self.create_model()
             self.bounds = self.init_bounds(self.bus, self.gen, self.bat)
@@ -376,15 +438,24 @@ class LinDistModel:
                 df_a_t = pd.DataFrame(columns=["bi", "bj", "pij", "qij", "vi", "vj"])
                 df_b_t = pd.DataFrame(columns=["bi", "bj", "pij", "qij", "vi", "vj"])
                 df_c_t = pd.DataFrame(columns=["bi", "bj", "pij", "qij", "vi", "vj"])
-                if len(g_a.nodes) >0:
+                if len(g_a.nodes) > 0:
                     df_a_t = pd.DataFrame(
                         {
                             "bi": t_a[:, 0],
                             "bj": t_a[:, 1],
-                            "pij": np.array([i + t * self.period for i in range(p_a_end)]),
-                            "qij": np.array([i + t * self.period for i in range(p_a_end, q_a_end)]),
+                            "pij": np.array(
+                                [i + t * self.period for i in range(p_a_end)]
+                            ),
+                            "qij": np.array(
+                                [i + t * self.period for i in range(p_a_end, q_a_end)]
+                            ),
                             "vi": np.zeros_like(t_a[:, 0]),
-                            "vj": np.array([i + t * self.period for i in range(q_a_end + 1, v_a_end)]),
+                            "vj": np.array(
+                                [
+                                    i + t * self.period
+                                    for i in range(q_a_end + 1, v_a_end)
+                                ]
+                            ),
                         },
                         dtype=np.int32,
                     )
@@ -393,15 +464,24 @@ class LinDistModel:
                         df_a_t.loc[df_a_t.loc[:, "bi"] == i, "vi"] = df_a_t.loc[
                             df_a_t.bj == i, "vj"
                         ].values[0]
-                if len(g_b.nodes) >0:
+                if len(g_b.nodes) > 0:
                     df_b_t = pd.DataFrame(
                         {
                             "bi": t_b[:, 0],
                             "bj": t_b[:, 1],
-                            "pij": np.array([i + t * self.period for i in range(v_a_end, p_b_end)]),
-                            "qij": np.array([i + t * self.period for i in range(p_b_end, q_b_end)]),
+                            "pij": np.array(
+                                [i + t * self.period for i in range(v_a_end, p_b_end)]
+                            ),
+                            "qij": np.array(
+                                [i + t * self.period for i in range(p_b_end, q_b_end)]
+                            ),
                             "vi": np.zeros_like(t_b[:, 0]),
-                            "vj": np.array([i + t * self.period for i in range(q_b_end + 1, v_b_end)]),
+                            "vj": np.array(
+                                [
+                                    i + t * self.period
+                                    for i in range(q_b_end + 1, v_b_end)
+                                ]
+                            ),
                         },
                         dtype=np.int32,
                     )
@@ -410,15 +490,21 @@ class LinDistModel:
                         df_b_t.loc[df_b_t.loc[:, "bi"] == i, "vi"] = df_b_t.loc[
                             df_b_t.bj == i, "vj"
                         ].values[0]
-                if len(g_c.nodes) >0:
+                if len(g_c.nodes) > 0:
                     df_c_t = pd.DataFrame(
                         {
                             "bi": t_c[:, 0],
                             "bj": t_c[:, 1],
-                            "pij": [i + t * self.period for i in range(v_b_end, p_c_end)],
-                            "qij": [i + t * self.period for i in range(p_c_end, q_c_end)],
+                            "pij": [
+                                i + t * self.period for i in range(v_b_end, p_c_end)
+                            ],
+                            "qij": [
+                                i + t * self.period for i in range(p_c_end, q_c_end)
+                            ],
                             "vi": np.zeros_like(t_c[:, 0]),
-                            "vj": [i + t * self.period for i in range(q_c_end + 1, v_c_end)],
+                            "vj": [
+                                i + t * self.period for i in range(q_c_end + 1, v_c_end)
+                            ],
                         },
                         dtype=np.int32,
                     )
@@ -453,7 +539,7 @@ class LinDistModel:
                     p_der_start_phase_idx_t = {
                         "a": ctr_var_start_idx + t * self.period,
                         "b": ctr_var_start_idx + t * self.period,
-                        "c": ctr_var_start_idx + t * self.period
+                        "c": ctr_var_start_idx + t * self.period,
                     }
                     p_der_start_phase_idx[t] = p_der_start_phase_idx_t
                     q_der_start_phase_idx_t = {
@@ -471,13 +557,13 @@ class LinDistModel:
                     pc_bat_start_phase_idx_t = {
                         "a": pd_bat_start_phase_idx_t["c"] + nb_c,
                         "b": pd_bat_start_phase_idx_t["c"] + nb_c + nb_a,
-                        "c": pd_bat_start_phase_idx_t["c"] + nb_c + nb_a + nb_b
+                        "c": pd_bat_start_phase_idx_t["c"] + nb_c + nb_a + nb_b,
                     }
                     pc_bat_start_phase_idx[t] = pc_bat_start_phase_idx_t
                     b_bat_start_phase_idx_t = {
                         "a": pc_bat_start_phase_idx_t["c"] + nb_c,
                         "b": pc_bat_start_phase_idx_t["c"] + nb_c + nb_a,
-                        "c": pc_bat_start_phase_idx_t["c"] + nb_c + nb_a + nb_b
+                        "c": pc_bat_start_phase_idx_t["c"] + nb_c + nb_a + nb_b,
                     }
                     b_bat_start_phase_idx[t] = b_bat_start_phase_idx_t
                     load_control_start_idx = b_bat_start_phase_idx_t["c"] + nb_c
@@ -494,13 +580,21 @@ class LinDistModel:
                         "c": load_control_start_idx + n_controlled_load_nodes * 5,
                     }
                     q_load_controlled[t] = q_load_controlled_t
-                return p_der_start_phase_idx, q_der_start_phase_idx, pd_bat_start_phase_idx, pc_bat_start_phase_idx, b_bat_start_phase_idx, p_load_controlled, q_load_controlled
+                return (
+                    p_der_start_phase_idx,
+                    q_der_start_phase_idx,
+                    pd_bat_start_phase_idx,
+                    pc_bat_start_phase_idx,
+                    b_bat_start_phase_idx,
+                    p_load_controlled,
+                    q_load_controlled,
+                )
             elif LinDistModelQ.der:
                 for t in range(LinDistModelQ.n):
                     p_der_start_phase_idx_t = {
                         "a": ctr_var_start_idx + t * self.period,
                         "b": ctr_var_start_idx + t * self.period,
-                        "c": ctr_var_start_idx + t * self.period
+                        "c": ctr_var_start_idx + t * self.period,
                     }
                     p_der_start_phase_idx[t] = p_der_start_phase_idx_t
                     q_der_start_phase_idx_t = {
@@ -523,7 +617,12 @@ class LinDistModel:
                         "c": load_control_start_idx + n_controlled_load_nodes * 5,
                     }
                     q_load_controlled[t] = q_load_controlled_t
-                return p_der_start_phase_idx, q_der_start_phase_idx, p_load_controlled, q_load_controlled
+                return (
+                    p_der_start_phase_idx,
+                    q_der_start_phase_idx,
+                    p_load_controlled,
+                    q_load_controlled,
+                )
             elif LinDistModelQ.battery:
                 for t in range(LinDistModelQ.n):
                     pd_bat_start_phase_idx_t = {
@@ -535,13 +634,13 @@ class LinDistModel:
                     pc_bat_start_phase_idx_t = {
                         "a": pd_bat_start_phase_idx_t["c"] + nb_c,
                         "b": pd_bat_start_phase_idx_t["c"] + nb_c + nb_a,
-                        "c": pd_bat_start_phase_idx_t["c"] + nb_c + nb_a + nb_b
+                        "c": pd_bat_start_phase_idx_t["c"] + nb_c + nb_a + nb_b,
                     }
                     pc_bat_start_phase_idx[t] = pc_bat_start_phase_idx_t
                     b_bat_start_phase_idx_t = {
                         "a": pc_bat_start_phase_idx_t["c"] + nb_c,
                         "b": pc_bat_start_phase_idx_t["c"] + nb_c + nb_a,
-                        "c": pc_bat_start_phase_idx_t["c"] + nb_c + nb_a + nb_b
+                        "c": pc_bat_start_phase_idx_t["c"] + nb_c + nb_a + nb_b,
                     }
                     b_bat_start_phase_idx[t] = b_bat_start_phase_idx_t
                     load_control_start_idx = b_bat_start_phase_idx_t["c"] + nb_c
@@ -558,7 +657,13 @@ class LinDistModel:
                         "c": load_control_start_idx + n_controlled_load_nodes * 5,
                     }
                     q_load_controlled[t] = q_load_controlled_t
-                return pd_bat_start_phase_idx, pc_bat_start_phase_idx, b_bat_start_phase_idx, p_load_controlled, q_load_controlled
+                return (
+                    pd_bat_start_phase_idx,
+                    pc_bat_start_phase_idx,
+                    b_bat_start_phase_idx,
+                    p_load_controlled,
+                    q_load_controlled,
+                )
             else:
                 for t in range(LinDistModelQ.n):
                     load_control_start_idx = ctr_var_start_idx + t * self.period
@@ -603,10 +708,10 @@ class LinDistModel:
                         x_lim_lower[i_v_swing] = bus.loc[self.SWING, "v_min"] ** 2
                         x_lim_upper[i_v_swing] = bus.loc[self.SWING, "v_max"] ** 2
                         x_lim_lower[x_maps[t][ph].loc[:, "vj"]] = (
-                                bus.loc[x_maps[t][ph].loc[:, "bj"], "v_min"] ** 2
+                            bus.loc[x_maps[t][ph].loc[:, "bj"], "v_min"] ** 2
                         )
                         x_lim_upper[x_maps[t][ph].loc[:, "vj"]] = (
-                                bus.loc[x_maps[t][ph].loc[:, "bj"], "v_max"] ** 2
+                            bus.loc[x_maps[t][ph].loc[:, "bj"], "v_max"] ** 2
                         )
                         # ~~ DER limits  ~~:
                         if LinDistModelQ.der:
@@ -615,8 +720,8 @@ class LinDistModel:
                                 # reactive power bounds
                                 s_rated = gen["s" + ph + "_max"]
                                 p_out = gen["p" + ph] * pv_shape["PV"][t]
-                                q_min = -sqrt((s_rated ** 2) - (p_out ** 2))
-                                q_max = sqrt((s_rated ** 2) - (p_out ** 2))
+                                q_min = -sqrt((s_rated**2) - (p_out**2))
+                                q_max = sqrt((s_rated**2) - (p_out**2))
                                 x_lim_lower[i_q] = q_min[self.der_bus[ph][i]]
                                 x_lim_upper[i_q] = q_max[self.der_bus[ph][i]]
                         # ~~ Battery limits ~~:
@@ -640,14 +745,18 @@ class LinDistModel:
 
         @cache
         def branch_into_j(self, var, j, phase, t):
-            return self.x_maps[t][phase].loc[self.x_maps[t][phase].bj == j, var].to_numpy()
+            return (
+                self.x_maps[t][phase].loc[self.x_maps[t][phase].bj == j, var].to_numpy()
+            )
 
         @cache
         def branches_out_of_j(self, var, j, phase, t):
-            return self.x_maps[t][phase].loc[self.x_maps[t][phase].bi == j, var].to_numpy()
+            return (
+                self.x_maps[t][phase].loc[self.x_maps[t][phase].bi == j, var].to_numpy()
+            )
 
         @cache
-        def idx(self, var, node_j, phase,t):
+        def idx(self, var, node_j, phase, t):
             if var == "pg":  # active power generation at node
                 raise ValueError("pg is fixed and is not a valid variable.")
             if var == "qg":  # reactive power generation at node
@@ -655,44 +764,44 @@ class LinDistModel:
             if var == "qg":
                 if node_j in set(self.der_bus[phase]):
                     return (
-                            self.q_der_start_phase_idx[t][phase]
-                            + np.where(self.der_bus[phase] == node_j)[0]
+                        self.q_der_start_phase_idx[t][phase]
+                        + np.where(self.der_bus[phase] == node_j)[0]
                     )
                 return []
             if var == "pl":  # active power exported at node (not root node)
                 if node_j in set(self.controlled_load_buses[phase]):
                     return (
-                            self.p_load_controlled_idxs[t][phase]
-                            + np.where(self.controlled_load_buses[phase] == node_j)[0]
+                        self.p_load_controlled_idxs[t][phase]
+                        + np.where(self.controlled_load_buses[phase] == node_j)[0]
                     )
             if var == "ql":  # reactive power exported at node (not root node)
                 if node_j in set(self.controlled_load_buses[phase]):
                     return (
-                            self.q_load_controlled_idxs[t][phase]
-                            + np.where(self.controlled_load_buses[phase] == node_j)[0]
+                        self.q_load_controlled_idxs[t][phase]
+                        + np.where(self.controlled_load_buses[phase] == node_j)[0]
                     )
             if var == "pd":
                 if node_j in set(self.bat_bus[phase]):
                     return (
-                            self.pd_bat_start_phase_idx[t][phase]
-                            + np.where(self.bat_bus[phase] == node_j)[0]
+                        self.pd_bat_start_phase_idx[t][phase]
+                        + np.where(self.bat_bus[phase] == node_j)[0]
                     )
                 return []
             if var == "pc":
                 if node_j in set(self.bat_bus[phase]):
                     return (
-                            self.pc_bat_start_phase_idx[t][phase]
-                            + np.where(self.bat_bus[phase] == node_j)[0]
+                        self.pc_bat_start_phase_idx[t][phase]
+                        + np.where(self.bat_bus[phase] == node_j)[0]
                     )
                 return []
             if var == "b":
                 if node_j in set(self.bat_bus[phase]):
                     return (
-                            self.b_bat_start_phase_idx[t][phase]
-                            + np.where(self.bat_bus[phase] == node_j)[0]
+                        self.b_bat_start_phase_idx[t][phase]
+                        + np.where(self.bat_bus[phase] == node_j)[0]
                     )
                 return []
-            return self.branch_into_j(var, node_j, phase,t)
+            return self.branch_into_j(var, node_j, phase, t)
 
         @cache
         def _row(self, var, index, phase, t):
@@ -711,7 +820,9 @@ class LinDistModel:
             # ########## Aeq and Beq Formation ###########
             n_rows = self.row_no
             n_col = self.n_x
-            a_eq = zeros((n_rows, n_col))  # Aeq has the same number of rows as equations with a column for each x
+            a_eq = zeros(
+                (n_rows, n_col)
+            )  # Aeq has the same number of rows as equations with a column for each x
             b_eq = zeros(n_rows)
             a_ineq = zeros((n_rows, n_col))
             b_ineq = zeros(n_rows)
@@ -758,15 +869,15 @@ class LinDistModel:
                         v_eqn = row("vj", a)
                         a_eq[p_eqn, col("pij", a)] = 1
                         a_eq[p_eqn, col("vj", a)] = (
-                                -(bus.cvr_p[j] / 2) * p_load * loadshape["M"][t]
+                            -(bus.cvr_p[j] / 2) * p_load * loadshape["M"][t]
                         )
                         a_eq[p_eqn, children("pij", a)] = -1
-                        b_eq[p_eqn] = (1 - (bus.cvr_p[j] / 2)) * p_load * loadshape["M"][t]
+                        b_eq[p_eqn] = (
+                            (1 - (bus.cvr_p[j] / 2)) * p_load * loadshape["M"][t]
+                        )
                         # Q equation
                         a_eq[q_eqn, col("qij", a)] = 1
-                        a_eq[q_eqn, col("vj", a)] = (
-                                -(bus.cvr_q[j] / 2) * q_load
-                        )
+                        a_eq[q_eqn, col("vj", a)] = -(bus.cvr_q[j] / 2) * q_load
                         a_eq[q_eqn, children("qij", a)] = -1
                         b_eq[q_eqn] = (1 - (bus.cvr_q[j] / 2)) * q_load - q_cap
 
@@ -775,27 +886,37 @@ class LinDistModel:
                         if i == self.SWING:  # Swing bus
                             a_eq[row("vi", a), col("vi", a)] = 1
                             b_eq[row("vi", a)] = (
-                                    bus.loc[bus.bus_type == "SWING", f"v_{a}"][0] ** 2
+                                bus.loc[bus.bus_type == "SWING", f"v_{a}"][0] ** 2
                             )
                         a_eq[v_eqn, col("vj", a)] = 1
-                        a_eq[v_eqn, col("vi", a)] = -1 *reg_ratio
+                        a_eq[v_eqn, col("vi", a)] = -1 * reg_ratio
                         a_eq[v_eqn, col("pij", a)] = 2 * r[aa][i, j]
                         a_eq[v_eqn, col("qij", a)] = 2 * x[aa][i, j]
                         if self.phase_exists(b, j):
-                            a_eq[v_eqn, col("pij", b)] = -r[ab][i, j] + sqrt(3) * x[ab][i, j]
-                            a_eq[v_eqn, col("qij", b)] = -x[ab][i, j] - sqrt(3) * r[ab][i, j]
+                            a_eq[v_eqn, col("pij", b)] = (
+                                -r[ab][i, j] + sqrt(3) * x[ab][i, j]
+                            )
+                            a_eq[v_eqn, col("qij", b)] = (
+                                -x[ab][i, j] - sqrt(3) * r[ab][i, j]
+                            )
                         if self.phase_exists(c, j):
-                            a_eq[v_eqn, col("pij", c)] = -r[ac][i, j] - sqrt(3) * x[ac][i, j]
-                            a_eq[v_eqn, col("qij", c)] = -x[ac][i, j] + sqrt(3) * r[ac][i, j]
+                            a_eq[v_eqn, col("pij", c)] = (
+                                -r[ac][i, j] - sqrt(3) * x[ac][i, j]
+                            )
+                            a_eq[v_eqn, col("qij", c)] = (
+                                -x[ac][i, j] + sqrt(3) * r[ac][i, j]
+                            )
                         if LinDistModelQ.der:
                             a_eq[q_eqn, col("qg", a)] = 1
-                            b_eq[p_eqn] = (1 - (bus.cvr_p[j] / 2)) * p_load * loadshape["M"][t] - p_gen * pv_shape["PV"][t]
-                            b_eq[q_eqn] = (1 - (bus.cvr_q[j] / 2)) * q_load- q_cap
+                            b_eq[p_eqn] = (1 - (bus.cvr_p[j] / 2)) * p_load * loadshape[
+                                "M"
+                            ][t] - p_gen * pv_shape["PV"][t]
+                            b_eq[q_eqn] = (1 - (bus.cvr_q[j] / 2)) * q_load - q_cap
                         if LinDistModelQ.battery:
                             b_eqn = row("b", a)
                             pd_eqn = row("pd", a)
                             nc = bat["nc_" + a].get(j, 0)
-                            nd = bat["nd_" + a].get(j, float('inf'))
+                            nd = bat["nd_" + a].get(j, float("inf"))
                             b_initial = bat["bmin_" + a].get(j, 0)
                             a_eq[p_eqn, col("pd", a)] = 1
                             a_eq[p_eqn, col("pc", a)] = -1
@@ -814,14 +935,19 @@ class LinDistModel:
                         if bus.bus_type[j] == PQ_FREE:
                             a_eq[p_eqn, col("pl", a)] = -1
                             a_eq[q_eqn, col("ql", a)] = -1
-            return a_eq, b_eq, a_ineq, b_ineq,
+            return (
+                a_eq,
+                b_eq,
+                a_ineq,
+                b_ineq,
+            )
 
         def fast_model_update(
-                self,
-                bus_data: pd.DataFrame = None,
-                gen_data: pd.DataFrame = None,
-                cap_data: pd.DataFrame = None,
-                reg_data: pd.DataFrame = None,
+            self,
+            bus_data: pd.DataFrame = None,
+            gen_data: pd.DataFrame = None,
+            cap_data: pd.DataFrame = None,
+            reg_data: pd.DataFrame = None,
         ):
             # ~~~~~~~~~~~~~~~~~~~~ Load Model ~~~~~~~~~~~~~~~~~~~~
             bus_update = bus_data is not None
@@ -861,7 +987,7 @@ class LinDistModel:
             self.bounds = self.init_bounds(self.bus, self.gen)
 
         def _fast_update_aeq_beq(
-                self, bus_update=False, gen_update=False, cap_update=False, reg_update=False
+            self, bus_update=False, gen_update=False, cap_update=False, reg_update=False
         ):
             bus = self.bus
             # ########## Aeq and Beq Formation ###########
@@ -915,13 +1041,13 @@ class LinDistModel:
                     # Set V equation variable coefficients in a_eq and constants in b_eq
 
                     if reg_update:
-                        a_eq[v_eqn, col("vi", a)] = -1 * reg_ratio ** 2
+                        a_eq[v_eqn, col("vi", a)] = -1 * reg_ratio**2
                     if bus_update:
                         i = self.idx("bi", j, a)[0]
                         if bus.bus_type[i] == "SWING":  # Swing bus
                             a_eq[row("vi", a), col("vi", a)] = 1
                             b_eq[row("vi", a)] = (
-                                    bus.loc[bus.bus_type == "SWING", f"v_{a}"][0] ** 2
+                                bus.loc[bus.bus_type == "SWING", f"v_{a}"][0] ** 2
                             )
                         if bus.bus_type[i] == PQ_FREE:
                             a_eq[row("vi", a), col("vi", a)] = 0
@@ -1026,10 +1152,12 @@ class LinDistModel:
                     if not self.phase_exists(ph):
                         v_df_t.loc[:, ph] = 0.0
                         continue
-                    v_df_t.loc[self.SWING + 1, ph] = np.sqrt(x[self.x_maps[t][ph].vi[0]].astype(np.float64))
-                    v_df_t.loc[self.x_maps[t][ph].bj.values + 1, ph] = np.sqrt(x[
-                        self.x_maps[t][ph].vj.values
-                    ].astype(np.float64))
+                    v_df_t.loc[self.SWING + 1, ph] = np.sqrt(
+                        x[self.x_maps[t][ph].vi[0]].astype(np.float64)
+                    )
+                    v_df_t.loc[self.x_maps[t][ph].bj.values + 1, ph] = np.sqrt(
+                        x[self.x_maps[t][ph].vj.values].astype(np.float64)
+                    )
                 v_df[t] = v_df_t
             return v_df
 
@@ -1050,7 +1178,7 @@ class LinDistModel:
                     s_df_t.loc[self.x_maps[t][ph].bj.values + 1, "fb"] = fb_names
                     s_df_t.loc[self.x_maps[t][ph].bj.values + 1, "tb"] = tb_names
                     s_df_t.loc[self.x_maps[t][ph].bj.values + 1, ph] = (
-                            x[self.x_maps[t][ph].pij] + 1j * x[self.x_maps[t][ph].qij]
+                        x[self.x_maps[t][ph].pij] + 1j * x[self.x_maps[t][ph].qij]
                     )
                 s_df[t] = s_df_t
             return s_df

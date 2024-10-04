@@ -50,7 +50,6 @@ class DSSParser:
         self.v_solved = self.get_v_solved()
         self.s_solved = self.get_apparent_power_flows()
 
-
     @cache
     def get_bus_names(self) -> list[str]:
         """Access all the bus (node) names from the circuit
@@ -291,11 +290,13 @@ class DSSParser:
         """
         n_phases = self.dss.Reactors.Phases()
         if n_phases == 3:
-            return np.eye(3)*self.dss.Reactors.R(), np.eye(3)*self.dss.Reactors.X()
+            return np.eye(3) * self.dss.Reactors.R(), np.eye(3) * self.dss.Reactors.X()
 
         else:
             # for other than 3 phases
-            raise NotImplemented("Parsing reactors with phases other than 3 not implemented")
+            raise NotImplemented(
+                "Parsing reactors with phases other than 3 not implemented"
+            )
             # active_phases = [
             #     int(phase) for phase in self.dss.CktElement.BusNames()[0].split(".")[1:]
             # ]

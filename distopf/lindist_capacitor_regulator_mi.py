@@ -135,14 +135,15 @@ class LinDistModelCapacitorRegulatorMI(opf.LinDistModelCapMI):
             for a in "abc":
                 if not self.phase_exists(a, j):
                     continue
-                tap_index = int(np.where(np.round(self.u_reg.value[i_reg, :]).astype(bool))[0][0])
+                tap_index = int(
+                    np.where(np.round(self.u_reg.value[i_reg, :]).astype(bool))[0][0]
+                )
                 tap = tap_index - 16
                 ratio = self.b_i[tap_index]
                 reg_result.loc[j, f"tap_{a}"] = int(tap)
                 reg_result.loc[j, f"ratio_{a}"] = ratio
                 i_reg += 1
         return reg_result
-
 
     @classmethod
     def calculate_x0(cls, branch_data, bus_data, gen_data, cap_data, reg_data):

@@ -1,4 +1,3 @@
-
 from collections.abc import Callable, Collection
 from time import perf_counter
 
@@ -9,7 +8,7 @@ from scipy.sparse import csr_array
 from distopf import LinDistModelQ, LinDistModelP, LinDistModel
 
 
-#cost = pd.read_csv("cost_data.csv")
+# cost = pd.read_csv("cost_data.csv")
 def gradient_load_min(model):
     c = np.zeros(model.n_x)
     for ph in "abc":
@@ -46,6 +45,7 @@ def gradient_curtail(model):
 #                         f += 1e-1*((1/0.95)-1) * (xk[dis])
 #     return f
 
+
 def cp_obj_loss(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression:
     """
 
@@ -67,16 +67,27 @@ def cp_obj_loss(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression
             for a in "abc":
                 if model.phase_exists(a, t, j):
                     i = model.idx("bi", j, a, t)
-                    f_list.append(model.r[a + a][i, j] * (xk[model.idx("pij", j, a, t)[0]] ** 2))
-                    f_list.append(model.r[a + a][i, j] * (xk[model.idx("qij", j, a, t)[0]] ** 2))
+                    f_list.append(
+                        model.r[a + a][i, j] * (xk[model.idx("pij", j, a, t)[0]] ** 2)
+                    )
+                    f_list.append(
+                        model.r[a + a][i, j] * (xk[model.idx("qij", j, a, t)[0]] ** 2)
+                    )
                     if model.battery:
                         dis = model.idx("pd", j, a, t)
                         ch = model.idx("pc", j, a, t)
                         if ch:
-                            f_list.append(1e-3*(1 - model.bat["nc_" + a].get(j,1)) * (xk[ch]))
+                            f_list.append(
+                                1e-3 * (1 - model.bat["nc_" + a].get(j, 1)) * (xk[ch])
+                            )
                         if dis:
-                            f_list.append(1e-3*((1/model.bat["nd_" + a].get(j,1))-1) * (xk[dis]))
+                            f_list.append(
+                                1e-3
+                                * ((1 / model.bat["nd_" + a].get(j, 1)) - 1)
+                                * (xk[dis])
+                            )
     return cp.sum(f_list)
+
 
 # def cp_obj_loss(model, xk):
 #     f: cp.Expression = 0
@@ -98,13 +109,14 @@ def cp_obj_loss(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression
 #                         #     f += 1e-3*((1/model.bat["nd_" + a].get(j,0))-model.bat["nc_" + a].get(j,0)) * (xk[dis])
 #     return f
 
-def peak_shave(model,xk):
+
+def peak_shave(model, xk):
     f: cp.Expression = 0
     subs = []
     for t in range(LinDistModelQ.n):
         ph = 0
         for a in "abc":
-            ph += xk[model.idx("pij", model.SWING+1, a, t)[0]]
+            ph += xk[model.idx("pij", model.SWING + 1, a, t)[0]]
         subs.append(ph)
         for j in range(1, model.nb):
             for a in "abc":
@@ -113,29 +125,37 @@ def peak_shave(model,xk):
                         dis = model.idx("pd", j, a, t)
                         ch = model.idx("pc", j, a, t)
                         if ch:
-                            f += 1e-3*(1 - model.bat["nc_" + a].get(j,1)) * (xk[ch])
+                            f += 1e-3 * (1 - model.bat["nc_" + a].get(j, 1)) * (xk[ch])
                         if dis:
-                            f += 1e-3*((1/model.bat["nd_" + a].get(j,1))-1) * (xk[dis])
+                            f += (
+                                1e-3
+                                * ((1 / model.bat["nd_" + a].get(j, 1)) - 1)
+                                * (xk[dis])
+                            )
                         # if dis:
                         #     f += 1e-5*((1/model.bat["nd_" + a].get(j,0))-model.bat["nc_" + a].get(j,0)) * (xk[dis])
     f += cp.max(cp.hstack(subs))
     return f
-peak_h =[17,18,19,20,21]
+
+
+peak_h = [17, 18, 19, 20, 21]
 peak_price = 19
 off_peak_price = 7
-def cost_min(model,xk):
-    f:cp.Expression = 0
+
+
+def cost_min(model, xk):
+    f: cp.Expression = 0
     for t in range(LinDistModelQ.n):
         if t in peak_h:
             peak = 0
             for a in "abc":
-                peak += xk[model.idx("pij", model.SWING+1, a, t)[0]]
-            f += peak*peak_price*10
+                peak += xk[model.idx("pij", model.SWING + 1, a, t)[0]]
+            f += peak * peak_price * 10
         else:
             off_peak = 0
             for a in "abc":
-                off_peak += xk[model.idx("pij", model.SWING+1, a, t)[0]]
-            f += off_peak*off_peak_price*10
+                off_peak += xk[model.idx("pij", model.SWING + 1, a, t)[0]]
+            f += off_peak * off_peak_price * 10
         for j in range(1, model.nb):
             for a in "abc":
                 if model.phase_exists(a, t, j):
@@ -143,12 +163,18 @@ def cost_min(model,xk):
                         dis = model.idx("pd", j, a, t)
                         ch = model.idx("pc", j, a, t)
                         if ch:
-                            f += 1e-3*(1 - model.bat["nc_" + a].get(j,1)) * (xk[ch])
+                            f += 1e-3 * (1 - model.bat["nc_" + a].get(j, 1)) * (xk[ch])
                         if dis:
-                            f += 1e-3*((1/model.bat["nd_" + a].get(j,1))-1) * (xk[dis])
+                            f += (
+                                1e-3
+                                * ((1 / model.bat["nd_" + a].get(j, 1)) - 1)
+                                * (xk[dis])
+                            )
                         # if dis:
                         #     f += 1e-3*((1/model.bat["nd_" + a].get(j,0))-model.bat["nc_" + a].get(j,0)) * (xk[dis])
     return f
+
+
 def cp_obj_target_p_3ph(model, xk, **kwargs):
     f = cp.Constant(0)
     target = kwargs["target"]
@@ -328,12 +354,20 @@ def lp_solve(model: LinDistModel, c: np.ndarray = None) -> OptimizeResult:
     tic = perf_counter()
     if model.battery:
         res = linprog(
-            c, A_eq=csr_array(model.a_eq), b_eq=model.b_eq.flatten(), A_ub=csr_array(model.a_ineq), b_ub= model.b_ineq.flatten(), bounds=model.bounds
+            c,
+            A_eq=csr_array(model.a_eq),
+            b_eq=model.b_eq.flatten(),
+            A_ub=csr_array(model.a_ineq),
+            b_ub=model.b_ineq.flatten(),
+            bounds=model.bounds,
         )
     else:
         res = linprog(
-        c, A_eq=csr_array(model.a_eq), b_eq=model.b_eq.flatten(), bounds=model.bounds
-    )
+            c,
+            A_eq=csr_array(model.a_eq),
+            b_eq=model.b_eq.flatten(),
+            bounds=model.bounds,
+        )
     if not res.success:
         raise ValueError(res.message)
     runtime = perf_counter() - tic

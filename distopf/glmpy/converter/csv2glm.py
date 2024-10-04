@@ -8,36 +8,37 @@ import distopf as opf
 
 # from pandas.core.frame import DataFrame
 
+
 class Csv2glm:
     def __init__(
-            self,
-            output_name,
-            branch_data=None,
-            bus_data=None,
-            gen_data=None,
-            cap_data=None,
-            reg_data=None,
-            p_gen_result=None,
-            q_gen_result=None,
-            seed_model=None,
-            down_nodes=None,
-            make_p_out_player=False,
-            make_p_max_player=False,
-            make_up_player=False,
-            model_results_out_dir="",
-            cvr=None,
-            single_run=False,
-            helics_config=None,
-            gen_mult=None,
-            gen_mult_for_p_max_only=False,
-            q_gen_mult=None,
-            load_mult=None,
-            rating_mult=1.2,
-            multiplier_update_period=60,
-            opf_model=None,
-            tz="PST+8PDT",
-            starttime="'2001-08-01 12:00:00'",
-            stoptime="'2001-08-01 12:00:00'",
+        self,
+        output_name,
+        branch_data=None,
+        bus_data=None,
+        gen_data=None,
+        cap_data=None,
+        reg_data=None,
+        p_gen_result=None,
+        q_gen_result=None,
+        seed_model=None,
+        down_nodes=None,
+        make_p_out_player=False,
+        make_p_max_player=False,
+        make_up_player=False,
+        model_results_out_dir="",
+        cvr=None,
+        single_run=False,
+        helics_config=None,
+        gen_mult=None,
+        gen_mult_for_p_max_only=False,
+        q_gen_mult=None,
+        load_mult=None,
+        rating_mult=1.2,
+        multiplier_update_period=60,
+        opf_model=None,
+        tz="PST+8PDT",
+        starttime="'2001-08-01 12:00:00'",
+        stoptime="'2001-08-01 12:00:00'",
     ):
         self.output_name = Path(output_name)
         self.base_dir = self.output_name.parent
@@ -59,10 +60,15 @@ class Csv2glm:
             self.cvr = np.array(cvr)
         else:
             self.cvr = None
-        self.swing_index = bus_data.loc[bus_data.bus_type.str.contains(opf.SWING_BUS)].index[0]
+        self.swing_index = bus_data.loc[
+            bus_data.bus_type.str.contains(opf.SWING_BUS)
+        ].index[0]
         self.swing_name = f"node_{self.bus_data.at[self.swing_index, 'name']}"
         self.v_ln_base = bus_data.at[self.swing_index, "v_ln_base"]
-        self.v_up = bus_data.loc[self.swing_index, ["v_a", "v_b", "v_c"]].to_numpy() * self.v_ln_base
+        self.v_up = (
+            bus_data.loc[self.swing_index, ["v_a", "v_b", "v_c"]].to_numpy()
+            * self.v_ln_base
+        )
         # self.s_dn_pu = s_dn_pu
         self.s_base = bus_data.at[self.swing_index, "s_base"]
         if isinstance(gen_mult, (os.PathLike, str)):
@@ -121,8 +127,14 @@ class Csv2glm:
         for i in range(len(self.branch_data)):
             from_bus = int(self.branch_data.loc[i, "fb"])
             to_bus = int(self.branch_data.loc[i, "tb"])
-            r = self.branch_data.loc[i, ["raa", "rab", "rac", "rbb", "rbc", "rcc"]] * self.branch_data.loc[i, "z_base"]
-            x = self.branch_data.loc[i, ["xaa", "xab", "xac", "xbb", "xbc", "xcc"]] * self.branch_data.loc[i, "z_base"]
+            r = (
+                self.branch_data.loc[i, ["raa", "rab", "rac", "rbb", "rbc", "rcc"]]
+                * self.branch_data.loc[i, "z_base"]
+            )
+            x = (
+                self.branch_data.loc[i, ["xaa", "xab", "xac", "xbb", "xbc", "xcc"]]
+                * self.branch_data.loc[i, "z_base"]
+            )
             r = r.to_numpy().flatten()
             x = x.to_numpy().flatten()
             link_type = self.branch_data.at[i, "type"]
@@ -161,7 +173,9 @@ class Csv2glm:
         pq_b_prop = "measured_power_B.real,measured_power_B.imag,"
         pq_c_prop = "measured_power_C.real,measured_power_C.imag"
         s_prop = pq_prop + pq_a_prop + pq_b_prop + pq_c_prop
-        self.make_recorder(self.swing_name, f"{self.model_results_out_dir}/s_in.csv", s_prop)
+        self.make_recorder(
+            self.swing_name, f"{self.model_results_out_dir}/s_in.csv", s_prop
+        )
         # Add a collector, voltdump, and currdump
         self.glm.model["collector"] = {
             "power_loss_collector": {
@@ -308,7 +322,11 @@ class Csv2glm:
         name = f"node_{self.bus_data.at[i, 'name']}"
         cvr_p = self.bus_data.at[i, "cvr_p"]
         cvr_q = self.bus_data.at[i, "cvr_q"]
-        loads = self.bus_data.loc[i, ["pl_a", "pl_b", "pl_c", "ql_a", "ql_b", "ql_c"]].to_numpy().flatten()
+        loads = (
+            self.bus_data.loc[i, ["pl_a", "pl_b", "pl_c", "ql_a", "ql_b", "ql_c"]]
+            .to_numpy()
+            .flatten()
+        )
         load_exists = np.max(np.abs(loads)) > 0
         gen_exists = bus_id in self.gen_data.id.to_numpy()
         cap_exists = bus_id in self.cap_data.id.to_numpy()
@@ -349,7 +367,9 @@ class Csv2glm:
     def make_const_load(self, bus_id, parent):
         target_dict = self.glm.model
         j = bus_id - 1
-        bus_name = f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
+        bus_name = (
+            f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
+        )
         s_base = self.bus_data.at[j, "s_base"]
         p_l = self.bus_data.loc[j, ["pl_a", "pl_b", "pl_c"]] * s_base
         q_l = self.bus_data.loc[j, ["ql_a", "ql_b", "ql_c"]] * s_base
@@ -376,22 +396,30 @@ class Csv2glm:
             "constant_power_C": s_str[2],
         }
         if self.load_mult is not None and not (
-                isinstance(self.load_mult, int) or isinstance(self.load_mult, float)
+            isinstance(self.load_mult, int) or isinstance(self.load_mult, float)
         ):
             p = Path(self.load_mult)
             for i_ph, ph in enumerate("ABC"):
                 player_file = self.base_dir / "players" / f"load_{bus_name}{ph}.player"
                 self.make_player_file(
-                    self.load_mult, player_file, s[i_ph], time_delta=self.multiplier_update_period // 60, time_delta_unit="m"
+                    self.load_mult,
+                    player_file,
+                    s[i_ph],
+                    time_delta=self.multiplier_update_period // 60,
+                    time_delta_unit="m",
                 )
                 self.make_player(
-                    f"load_{bus_name}", player_file.relative_to(self.base_dir), f"constant_power_{ph}"
+                    f"load_{bus_name}",
+                    player_file.relative_to(self.base_dir),
+                    f"constant_power_{ph}",
                 )
 
     def make_zip_load(self, bus_id, parent):
         target_dict = self.glm.model
         i = bus_id - 1
-        bus_name = f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
+        bus_name = (
+            f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
+        )
         s_base = self.bus_data.at[i, "s_base"]
         p_l = self.bus_data.loc[i, ["pl_a", "pl_b", "pl_c"]] * s_base
         q_l = self.bus_data.loc[i, ["ql_a", "ql_b", "ql_c"]] * s_base
@@ -461,7 +489,7 @@ class Csv2glm:
             for index, ph in enumerate("ABC"):
                 # P Loads
                 player_file = (
-                        self.base_dir / "players" / f"load_{bus_name}_p{ph}.player"
+                    self.base_dir / "players" / f"load_{bus_name}_p{ph}.player"
                 ).as_posix()
                 self.make_player_file(
                     self.load_mult,
@@ -477,7 +505,7 @@ class Csv2glm:
                 )
                 # Q Loads
                 player_file = (
-                        self.base_dir / "players" / f"load_{bus_name}_q{ph}.player"
+                    self.base_dir / "players" / f"load_{bus_name}_q{ph}.player"
                 ).as_posix()
                 self.make_player_file(
                     self.load_mult,
@@ -495,7 +523,9 @@ class Csv2glm:
     def make_inverter(self, bus_id, parent):
 
         j = bus_id - 1
-        bus_name = f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
+        bus_name = (
+            f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
+        )
         s_base = self.bus_data.at[j, "s_base"]
         p_max = self.gen_data.loc[j, ["pa", "pb", "pc"]] * s_base
         if self.p_gen_result is not None:
@@ -603,7 +633,9 @@ class Csv2glm:
                             time_delta=self.multiplier_update_period // 60,
                             time_delta_unit="m",
                         )
-                        self.make_player(name, player_file.relative_to(self.base_dir), "Q_Out")
+                        self.make_player(
+                            name, player_file.relative_to(self.base_dir), "Q_Out"
+                        )
 
     # def make_bess_inverter(
     #         self, node_id, phases, p_rated, parent, p_gen=None, q_gen=None
@@ -721,7 +753,9 @@ class Csv2glm:
     def make_cap(self, bus_id, parent=None):
         target_dict = self.glm.model
         j = bus_id - 1
-        bus_name = f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
+        bus_name = (
+            f"{self.bus_data.loc[self.bus_data.id == bus_id, 'name'].to_numpy()[0]}"
+        )
         s_base = self.bus_data.at[j, "s_base"]
         q_cap = self.cap_data.loc[j, ["qa", "qb", "qc"]] * s_base
         phases = self.bus_data.at[j, "phases"]
@@ -749,8 +783,12 @@ class Csv2glm:
         target_dict = self.glm.model
         from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
         to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
-        from_name_short = f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
-        to_name_short = f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        from_name_short = (
+            f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        )
+        to_name_short = (
+            f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        )
         line_config_name = f"line_config_{from_name_short}_{to_name_short}"
         if target_dict.get("line_configuration") is None:
             target_dict["line_configuration"] = {}
@@ -801,8 +839,12 @@ class Csv2glm:
         target_dict = self.glm.model
         from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
         to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
-        from_name_short = f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
-        to_name_short = f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        from_name_short = (
+            f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        )
+        to_name_short = (
+            f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        )
         line_name = f"oh_line_{from_name_short}_{to_name_short}"
         if target_dict.get("overhead_line") is None:
             target_dict["overhead_line"] = {}
@@ -827,8 +869,12 @@ class Csv2glm:
         """
         from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
         to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
-        from_name_short = f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
-        to_name_short = f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        from_name_short = (
+            f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        )
+        to_name_short = (
+            f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        )
         target_dict = self.glm.model
         link_name = f"switch_{from_name_short}_{to_name_short}"
         if target_dict.get("switch") is None:
@@ -872,8 +918,12 @@ class Csv2glm:
         tap_c = self.reg_data.loc[self.reg_data.tb == to_bus, "tap_c"].to_numpy()[0]
         from_name = f"node_{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
         to_name = f"node_{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
-        from_name_short = f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
-        to_name_short = f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        from_name_short = (
+            f"{self.bus_data.loc[self.bus_data.id == from_bus, 'name'].to_numpy()[0]}"
+        )
+        to_name_short = (
+            f"{self.bus_data.loc[self.bus_data.id == to_bus, 'name'].to_numpy()[0]}"
+        )
         link_name = f"regulator_{from_name_short}_{to_name_short}"
         config_name = f"regulator_config_{from_name_short}_{to_name_short}"
         if target_dict.get("regulator_configuration") is None:
@@ -900,13 +950,13 @@ class Csv2glm:
         pass
 
     def make_player_file(
-            self,
-            in_file,
-            out_file,
-            base_value,
-            time_delta=1,
-            time_delta_unit="m",
-            starttime=None,
+        self,
+        in_file,
+        out_file,
+        base_value,
+        time_delta=1,
+        time_delta_unit="m",
+        starttime=None,
     ):
         if starttime is None:
             starttime = self.starttime
