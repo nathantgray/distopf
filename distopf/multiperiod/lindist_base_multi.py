@@ -239,6 +239,7 @@ class LinDistModel:
         self.pv_loadshape = _handle_pv_loadshape_input(pv_loadshape_data)
         self.bat = _handle_bat_input(bat_data)
         self.n = n
+        self.n_steps = n
         self.der = der
         self.battery = battery
         self.SWING = self.bus.loc[self.bus.bus_type == "SWING", "id"].to_numpy()[0] - 1
@@ -1032,7 +1033,7 @@ class LinDistModel:
                         dec_var_t.at[i + 1, "name"] = self.bus.at[i, "name"]
                         dec_var_t.at[i + 1, ph] = x[qi[t][ph] + i_gen]
                 dec_var[t] = dec_var_t
-            return dec_var
+            return dec_var, None, None, None
         elif self.battery:
             pdi = self.pd_bat_start_phase_idx
             pci = self.pc_bat_start_phase_idx
@@ -1056,7 +1057,7 @@ class LinDistModel:
                 dec_d_var[t] = dec_d_var_t
                 dec_c_var[t] = dec_c_var_t
                 dec_b_var[t] = dec_b_var_t
-            return dec_d_var, dec_c_var, dec_b_var
+            return None, dec_d_var, dec_c_var, dec_b_var
         else:
             return pd.DataFrame(columns=["name", "a", "b", "c"])
 
@@ -1081,6 +1082,30 @@ class LinDistModel:
             v_df[t] = v_df_t
         return v_df
 
+    def get_voltages_new(self, x):
+        df_list = []
+        for t in range(self.n):
+            v_df = pd.DataFrame(
+                columns=["id", "name", "t", "a", "b", "c"],
+                index=np.array(range(1, self.nb + 1)),
+            )
+            v_df.t = t
+            v_df["name"] = self.bus["name"].to_numpy()
+            for ph in "abc":
+                if not self.phase_exists(ph):
+                    v_df.loc[:, ph] = 0.0
+                    continue
+                v_df.loc[1, ph] = np.sqrt(
+                    x[self.x_maps[t][ph].vi[0]].astype(np.float64)
+                )
+                v_df.loc[self.x_maps[t][ph].bj.values + 1, ph] = np.sqrt(
+                    x[self.x_maps[t][ph].vj.values].astype(np.float64)
+                )
+            v_df.id = v_df.index
+            df_list.append(v_df)
+        df = pd.concat(df_list, axis=0).reset_index(drop=True)
+        return df
+
     def get_apparent_power_flows(self, x):
         s_df = {}
         for t in range(self.n):
@@ -1101,6 +1126,30 @@ class LinDistModel:
                     x[self.x_maps[t][ph].pij] + 1j * x[self.x_maps[t][ph].qij]
                 )
             s_df[t] = s_df_t
+        return s_df
+
+    def get_apparent_power_flows_new(self, x):
+        df_list = []
+        for t in range(self.n):
+            s_df = pd.DataFrame(
+                columns=["fb", "tb", "t", "a", "b", "c"], index=range(2, self.nb + 1)
+            )
+            s_df["a"] = s_df["a"].astype(complex)
+            s_df["b"] = s_df["b"].astype(complex)
+            s_df["c"] = s_df["c"].astype(complex)
+            s_df.t = t
+            for ph in "abc":
+                fb_idxs = self.x_maps[t][ph].bi.values
+                fb_names = self.bus.name[fb_idxs].to_numpy()
+                tb_idxs = self.x_maps[t][ph].bj.values
+                tb_names = self.bus.name[tb_idxs].to_numpy()
+                s_df.loc[self.x_maps[t][ph].bj.values + 1, "fb"] = fb_names
+                s_df.loc[self.x_maps[t][ph].bj.values + 1, "tb"] = tb_names
+                s_df.loc[self.x_maps[t][ph].bj.values + 1, ph] = (
+                    x[self.x_maps[t][ph].pij] + 1j * x[self.x_maps[t][ph].qij]
+                )
+            df_list.append(s_df)
+        s_df = pd.concat(df_list, axis=0).reset_index(drop=True)
         return s_df
 
     @property
