@@ -1,0 +1,3 @@
+﻿id,name,nc_a,nc_b,nc_c,nd_a,nd_b,nd_c,hmax_a,hmax_b,hmax_c,Pb_max_a,Pb_max_b,Pb_max_c,bmin_a,bmin_b,bmin_c,bmax_a,bmax_b,bmax_c,phases
+3,3,0.95,0.95,0.95,0.95,0.95,0.95,0.012,0.012,0.012,0.01,0.01,0.01,0.003,0.003,0.003,0.0095,0.0095,0.0095,abc
+

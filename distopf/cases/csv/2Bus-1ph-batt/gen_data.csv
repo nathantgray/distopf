@@ -1,0 +1,2 @@
+id,name,pa,pb,pc,qa,qb,qc,sa_max,sb_max,sc_max,phases,qa_max,qb_max,qc_max,qa_min,qb_min,qc_min,a_mode,b_mode,c_mode
+2,n2,0.5,0,0,0,0,0,0.5,0,0,a,100,0,0,-100,0,0,CONSTANT_P,CONSTANT_P,CONSTANT_P
