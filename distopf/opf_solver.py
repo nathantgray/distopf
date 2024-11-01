@@ -449,7 +449,7 @@ def lp_solve(model: LinDistModel, c: np.ndarray = None) -> OptimizeResult:
         c = np.zeros(model.n_x)
     tic = perf_counter()
     res = linprog(
-        c, A_eq=csr_array(model.a_eq), b_eq=model.b_eq.flatten(), bounds=model.bounds
+        c, A_eq=csr_array(model.a_eq), b_eq=model.b_eq.flatten(), A_ub=model.a_ub, b_ub=model.b_ub, bounds=model.bounds
     )
     if not res.success:
         raise ValueError(res.message)

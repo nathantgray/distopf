@@ -6,6 +6,7 @@ import numpy as np
 from scipy.optimize import OptimizeResult, linprog
 from scipy.sparse import csr_array
 from distopf.multiperiod import LinDistModelQ, LinDistModelP, LinDistModel
+from distopf.multiperiod.lindist_base_modular_multi import LinDistModelModular
 
 
 # cost = pd.read_csv("cost_data.csv")
@@ -28,23 +29,8 @@ def gradient_curtail(model):
 
 
 # ~~~ Quadratic objective with linear constraints for use with solve_quad()~~~
-# def cp_obj_loss(model, xk):
-#     f: cp.Expression = 0
-#     for t in range(LinDistModelQ.n):
-#         for j in range(1, model.nb):
-#             for a in "abc":
-#                 if model.phase_exists(a, t, j):
-#                     i = model.idx("bi", j, a, t)
-#                     f += model.r[a + a][i, j] * (xk[model.idx("pij", j, a, t)[0]] ** 2)
-#                     f += model.r[a + a][i, j] * (xk[model.idx("qij", j, a, t)[0]] ** 2)
-#                     dis = model.idx("pd", j, a, t)
-#                     ch = model.idx("pc", j, a, t)
-#                     if ch:
-#                         f += 1e-1*(1 - 0.95) * (xk[ch])
-#                     if dis:
-#                         f += 1e-1*((1/0.95)-1) * (xk[dis])
-#     return f
-def cp_obj_loss_vectorized(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression:
+
+def cp_obj_loss(model: LinDistModelModular, xk: cp.Variable, **kwargs) -> cp.Expression:
     """
 
     Parameters
@@ -59,41 +45,86 @@ def cp_obj_loss_vectorized(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp
         Expression to be minimized
 
     """
-    c = np.zeros(model.n_x)
-    f_list = []
-    for t in range(model.n_steps):
+    if "start_step" in model.__dict__.keys():
+        start_step = model.start_step
+    else:
+        start_step = 0
+    index_list = []
+    r_list = np.array([])
+    for t in range(start_step, start_step + model.n_steps):
         for a in "abc":
             if not model.phase_exists(a):
                 continue
             i = model.x_maps[t][a].bi
             j = model.x_maps[t][a].bj
-            f_list.append(
-                cp.vdot(model.r[a + a][i, j], (xk[model.x_maps[t][a].pij] ** 2))
-            )
-            f_list.append(
-                cp.vdot(model.r[a + a][i, j], (xk[model.x_maps[t][a].qij] ** 2))
-            )
+            r_list = np.append(r_list, np.array(model.r[a + a][i, j]).flatten())
+            r_list = np.append(r_list, np.array(model.r[a + a][i, j]).flatten())
+            index_list = np.append(index_list, model.x_maps[t][a].pij.to_numpy().flatten())
+            index_list = np.append(index_list, model.x_maps[t][a].qij.to_numpy().flatten())
+    r = np.array(r_list)
+    ix = np.array(index_list).astype(int)
+    if isinstance(xk, cp.Variable):
+        return cp.vdot(r, xk[ix]**2)
+    else:
+        return np.vdot(r, xk[ix]**2)
 
 
-            # try:
-            #     dis = model.idx("discharge", j, a, t=t)
-            # except(KeyError):
-            #     dis = model.idx("pd", j, a, t=t)
-            # try:
-            #     ch = model.idx("charge", j, a, t=t)
-            # except(KeyError):
-            #     ch = model.idx("pc", j, a, t=t)
+def cp_battery_efficiency(model: LinDistModelModular, xk: cp.Variable, **kwargs) -> cp.Expression:
+    """
+
+    Parameters
+    ----------
+    model : LinDistModel, or LinDistModelP, or LinDistModelQ
+    xk : cp.Variable
+    kwargs :
+
+    Returns
+    -------
+    f: cp.Expression
+        Expression to be minimized
+
+    """
+    if "start_step" in model.__dict__.keys():
+        start_step = model.start_step
+    else:
+        start_step = 0
+    vec1_list = []
+    index_list = []
+    for t in range(start_step, start_step + model.n_steps):
+        for a in "abc":
+            if not model.phase_exists(a):
+                continue
             charging_efficiency = model.bat.loc[model.charge_map[t][a].index, f"nc_{a}"].to_numpy()
             discharging_efficiency = model.bat.loc[model.discharge_map[t][a].index, f"nd_{a}"].to_numpy()
-            f_list.append(
-                1e-3 * cp.vdot((1 - charging_efficiency), xk[model.charge_map[t][a].to_numpy()])
-            )
-            f_list.append(
-                1e-3 * cp.vdot(((1 / discharging_efficiency) - 1), xk[model.discharge_map[t][a].to_numpy()])
-            )
-    return cp.sum(f_list)
+            vec1_list.extend((1 - charging_efficiency))
+            vec1_list.extend(((1 / discharging_efficiency) - 1))
+            index_list.extend(model.charge_map[t][a].to_numpy())
+            index_list.extend(model.discharge_map[t][a].to_numpy())
+    vec1 = np.array(vec1_list)
+    ix = np.array(index_list)
+    if isinstance(xk, cp.Variable):
+        return 1e-3 * cp.vdot(vec1, xk[ix])
+    else:
+        return 1e-3 * np.vdot(vec1, xk[ix])
 
-def cp_obj_loss(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression:
+def cp_obj_loss_batt(model: LinDistModelModular, xk: cp.Variable, **kwargs) -> cp.Expression:
+    """
+
+    Parameters
+    ----------
+    model : LinDistModel, or LinDistModelP, or LinDistModelQ
+    xk : cp.Variable
+    kwargs :
+
+    Returns
+    -------
+    f: cp.Expression
+        Expression to be minimized
+
+    """
+    return cp_obj_loss(model, xk) + cp_battery_efficiency(model, xk)
+
+def cp_obj_loss_deprecated(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression:
     """
 
     Parameters
@@ -124,11 +155,11 @@ def cp_obj_loss(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression
                     if model.battery:
                         try:
                             dis = model.idx("discharge", j, a, t=t)
-                        except(KeyError):
+                        except KeyError:
                             dis = model.idx("pd", j, a, t=t)
                         try:
                             ch = model.idx("charge", j, a, t=t)
-                        except(KeyError):
+                        except KeyError:
                             ch = model.idx("pc", j, a, t=t)
 
                         if ch:
@@ -143,26 +174,6 @@ def cp_obj_loss(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression
                             )
     return cp.sum(f_list)
 
-
-# def cp_obj_loss(model, xk):
-#     f: cp.Expression = 0
-#     for t in range(LinDistModelQ.n):
-#         for j in range(1, model.nb):
-#             for a in "abc":
-#                 if model.phase_exists(a, t, j):
-#                     i = model.idx("bi", j, a, t)[0]
-#                     f += model.r[a + a][i, j] * (xk[model.idx("pij", j, a, t)[0]] ** 2)
-#                     f += model.r[a + a][i, j] * (xk[model.idx("qij", j, a, t)[0]] ** 2)
-#                     if LinDistModel.battery:
-#                         dis = model.idx("pd", j, a, t)
-#                         ch = model.idx("pc", j, a, t)
-#                         if ch:
-#                             f += 1e-3*(1 - model.bat["nc_" + a].get(j,1)) * (xk[ch])
-#                         if dis:
-#                             f += 1e-3*((1/model.bat["nd_" + a].get(j,1))-1) * (xk[dis])
-#                         # if dis:
-#                         #     f += 1e-3*((1/model.bat["nd_" + a].get(j,0))-model.bat["nc_" + a].get(j,0)) * (xk[dis])
-#     return f
 
 def charge_batteries(model, xk, **kwargs) -> cp.Expression:
     f_list = []
@@ -339,7 +350,8 @@ def cvxpy_solve(
         x0 = lin_res.x.copy()
     x = cp.Variable(shape=(m.n_x,), name="x", value=x0)
     g = [csr_array(m.a_eq) @ x - m.b_eq.flatten() == 0]
-    if model.battery:
+
+    if m.a_ineq.shape[0] != 0:
         h = [csr_array(m.a_ineq) @ x - m.b_ineq.flatten() <= 0]
     else:
         h = []

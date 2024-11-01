@@ -7,6 +7,7 @@ from distopf.multiperiod.opf_solver_multi import (
     gradient_load_min,
     gradient_curtail,
     cp_obj_loss,
+    cp_obj_loss_batt,
     cp_obj_target_p_3ph,
     cp_obj_target_p_total,
     cp_obj_target_q_3ph,

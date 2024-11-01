@@ -226,6 +226,7 @@ class LinDistModelModular:
         loadshape_data: pd.DataFrame = None,
         pv_loadshape_data: pd.DataFrame = None,
         bat_data: pd.DataFrame = None,
+        start_step: int = 0,
         n_steps: int = 24,
         der: bool = True,
         battery: bool = True,
@@ -239,6 +240,7 @@ class LinDistModelModular:
         self.loadshape = _handle_loadshape_input(loadshape_data)
         self.pv_loadshape = _handle_pv_loadshape_input(pv_loadshape_data)
         self.bat = _handle_bat_input(bat_data)
+        self.start_step = start_step
         self.n_steps = n_steps
         self.der = True
         self.battery = True
@@ -323,7 +325,7 @@ class LinDistModelModular:
         self.discharge_map = {}
         self.soc_map = {}
         self.n_x = 0
-        for t in range(self.n_steps):
+        for t in range(self.start_step, self.start_step + self.n_steps):
             self.x_maps[t], self.n_x = self._variable_tables(self.branch, n_x=self.n_x)
             self.v_map[t], self.n_x = self._add_device_variables(
                 self.n_x, self.all_buses
@@ -438,7 +440,7 @@ class LinDistModelModular:
         # ~~~~~~~~~~ x limits ~~~~~~~~~~
         x_lim_lower = np.ones(self.n_x) * -default
         x_lim_upper = np.ones(self.n_x) * default
-        for t in range(self.n_steps):
+        for t in range(self.start_step, self.start_step + self.n_steps):
             x_lim_lower, x_lim_upper = self.add_voltage_limits(
                 x_lim_lower, x_lim_upper, t=t
             )
@@ -487,9 +489,13 @@ class LinDistModelModular:
             x_lim_upper[self.x_maps[a].qij] = q_lim
         ```
         """
+        if t < self.start_step:
+            t = self.start_step
         return x_lim_lower, x_lim_upper
 
     def add_voltage_limits(self, x_lim_lower, x_lim_upper, t=0):
+        if t < self.start_step:
+            t = self.start_step
         for a in "abc":
             if not self.phase_exists(a):
                 continue
@@ -503,6 +509,8 @@ class LinDistModelModular:
         return x_lim_lower, x_lim_upper
 
     def add_generator_limits(self, x_lim_lower, x_lim_upper, t=0):
+        if t < self.start_step:
+            t = self.start_step
         gen_mult = self.pv_loadshape.PV[t]
         for a in "abc":
             if not self.phase_exists(a):
@@ -511,8 +519,8 @@ class LinDistModelModular:
             q_min_manual = self.gen[f"q{a}_min"]
             s_rated = self.gen[f"s{a}_max"]
             p_out = self.gen[f"p{a}"]
-            q_min = -1 * (((s_rated**2) - (p_out**2)) ** (1 / 2))
-            q_max = ((s_rated**2) - (p_out**2)) ** (1 / 2)
+            q_max = ((s_rated**2) - ((p_out*gen_mult)**2)) ** (1 / 2)
+            q_min = -1 * q_max
             for j in self.gen_buses[a]:
                 mode = self.gen.loc[j, f"{a}_mode"]
                 pg = self.idx("pg", j, a, t)
@@ -531,6 +539,8 @@ class LinDistModelModular:
         return x_lim_lower, x_lim_upper
 
     def add_battery_discharging_limits(self, x_lim_lower, x_lim_upper, t=0):
+        if t < self.start_step:
+            t = self.start_step
         for a in "abc":
             if not self.phase_exists(a):
                 continue
@@ -539,6 +549,8 @@ class LinDistModelModular:
         return x_lim_lower, x_lim_upper
 
     def add_battery_charging_limits(self, x_lim_lower, x_lim_upper, t=0):
+        if t < self.start_step:
+            t = self.start_step
         for a in "abc":
             if not self.phase_exists(a):
                 continue
@@ -547,6 +559,8 @@ class LinDistModelModular:
         return x_lim_lower, x_lim_upper
 
     def add_battery_soc_limits(self, x_lim_lower, x_lim_upper, t=0):
+        if t < self.start_step:
+            t = self.start_step
         for a in "abc":
             if not self.phase_exists(a):
                 continue
@@ -556,16 +570,22 @@ class LinDistModelModular:
 
     @cache
     def branch_into_j(self, var, j, phase, t=0):
+        if t < self.start_step:
+            t = self.start_step
         idx = self.x_maps[t][phase].loc[self.x_maps[t][phase].bj == j, var].to_numpy()
         return idx[~np.isnan(idx)].astype(int)
 
     @cache
     def branches_out_of_j(self, var, j, phase, t=0):
+        if t < self.start_step:
+            t = self.start_step
         idx = self.x_maps[t][phase].loc[self.x_maps[t][phase].bi == j, var].to_numpy()
         return idx[~np.isnan(idx)].astype(int)
 
     @cache
     def idx(self, var, node_j, phase, t=0):
+        if t < self.start_step:
+            t = self.start_step
         if var in self.x_maps[t][phase].columns:
             return self.branch_into_j(var, node_j, phase, t=t)
         if var in ["pjk"]:  # indexes of all branch active power out of node j
@@ -609,10 +629,14 @@ class LinDistModelModular:
         -------
         ix : index or list of indices of variable within x-vector or None if `var` is not found.
         """
+        if t < self.start_step:
+            t = self.start_step
         return None
 
     @cache
     def phase_exists(self, phase, index: int = None, t=0):
+        if t < self.start_step:
+            t = self.start_step
         if index is None:
             return self.x_maps[t][phase].shape[0] > 0
         return len(self.idx("bj", index, phase, t=t)) > 0
@@ -624,7 +648,7 @@ class LinDistModelModular:
         # Aeq has the same number of rows as equations with a column for each x
         a_eq = zeros((n_rows, n_cols))
         b_eq = zeros(n_rows)
-        for t in range(self.n_steps):
+        for t in range(self.start_step, self.start_step + self.n_steps):
             for j in range(1, self.nb):
                 for ph in ["abc", "bca", "cab"]:
                     a, b, c = ph[0], ph[1], ph[2]
@@ -641,6 +665,8 @@ class LinDistModelModular:
         return csr_array(a_eq), b_eq
 
     def add_power_flow_model(self, a_eq, b_eq, j, phase, t=0):
+        if t < self.start_step:
+            t = self.start_step
         pij = self.idx("pij", j, phase, t=t)
         qij = self.idx("qij", j, phase, t=t)
         pjk = self.idx("pjk", j, phase, t=t)
@@ -668,6 +694,8 @@ class LinDistModelModular:
         return a_eq, b_eq
 
     def add_voltage_drop_model(self, a_eq, b_eq, j, a, b, c, t=0):
+        if t < self.start_step:
+            t = self.start_step
         r, x = self.r, self.x
         aa = "".join(sorted(a + a))
         # if ph=='cab', then a+b=='ca'. Sort so ab=='ac'
@@ -712,6 +740,8 @@ class LinDistModelModular:
         return a_eq, b_eq
 
     def add_generator_model(self, a_eq, b_eq, j, phase, t=0):
+        if t < self.start_step:
+            t = self.start_step
         a = phase
         p_gen_nom, q_gen_nom = 0, 0
         pv_mult = self.pv_loadshape.PV[t]
@@ -731,6 +761,8 @@ class LinDistModelModular:
         return a_eq, b_eq
 
     def add_load_model(self, a_eq, b_eq, j, phase, t=0):
+        if t < self.start_step:
+            t = self.start_step
         a = phase
         p_load_nom, q_load_nom = 0, 0
         load_mult = self.loadshape.M[t]
@@ -753,6 +785,8 @@ class LinDistModelModular:
         return a_eq, b_eq
 
     def add_capacitor_model(self, a_eq, b_eq, j, phase, t=0):
+        if t < self.start_step:
+            t = self.start_step
         q_cap_nom = 0
         if self.cap is not None:
             q_cap_nom = get(self.cap[f"q{phase}"], j, 0)
@@ -764,6 +798,8 @@ class LinDistModelModular:
         return a_eq, b_eq
 
     def add_battery_model(self, a_eq, b_eq, j, phase, t=0):
+        if t < self.start_step:
+            t = self.start_step
         soc_j = self.idx("soc", j, phase, t=t)
         discharge_j = self.idx("discharge", j, phase, t=t)
         charge_j = self.idx("charge", j, phase, t=t)
@@ -771,8 +807,6 @@ class LinDistModelModular:
         nd = self.bat["nd_" + phase].get(j, float("inf"))
         soc0 = self.bat["bmin_" + phase].get(j, 0)
         dt = 1  # 1 hour time step assumed, currently soc is in units of p_base*1hour (default: 1MWh)
-        # a_eq[discharge_j, discharge_j] = 1
-        # a_eq[charge_j, charge_j] = 1
         a_eq[soc_j, discharge_j] = 1 / nd * dt
         a_eq[soc_j, charge_j] = -nc * dt
         a_eq[soc_j, soc_j] = 1
@@ -790,7 +824,7 @@ class LinDistModelModular:
         a_ineq = zeros((n_rows_ineq, self.n_x))
         b_ineq = zeros(n_rows_ineq)
         ineq1 = 0
-        for t in range(self.n_steps):
+        for t in range(self.start_step, self.start_step + self.n_steps):
             for a in "abc":
                 for j in self.bat.index:
                     if not self.phase_exists(a, j):
@@ -823,7 +857,7 @@ class LinDistModelModular:
         ineq4 = 3
         ineq5 = 4
         ineq6 = 5
-        for t in range(self.n_steps):
+        for t in range(self.start_step, self.start_step + self.n_steps):
             for j in self.gen.index:
                 for a in "abc":
                     if not self.phase_exists(a, j):
@@ -879,7 +913,7 @@ class LinDistModelModular:
         ineq3 = 2
         ineq4 = 3
         ineq5 = 4
-        for t in range(self.n_steps):
+        for t in range(self.start_step, self.start_step + self.n_steps):
             for j in self.gen.index:
                 for a in "abc":
                     if not self.phase_exists(a, j):
@@ -925,7 +959,7 @@ class LinDistModelModular:
         df_list = []
         if len(variable_map.keys()) == 0:
             return pd.DataFrame(columns=["id", "name", "t", "a", "b", "c"])
-        for t in range(self.n_steps):
+        for t in range(self.start_step, self.start_step + self.n_steps):
             index = np.unique(
                 np.r_[
                     variable_map[t]["a"].index,
@@ -975,7 +1009,7 @@ class LinDistModelModular:
 
     def get_apparent_power_flows(self, x):
         df_list = []
-        for t in range(self.n_steps):
+        for t in range(self.start_step, self.start_step + self.n_steps):
             s_df = pd.DataFrame(
                 columns=["fb", "tb", "from_name", "to_name", "t", "a", "b", "c"],
                 index=range(2, self.nb + 1),
@@ -1075,3 +1109,11 @@ class LinDistModelModular:
         if self._bounds is None:
             self._bounds = self.init_bounds()
         return self._bounds[:, 1]
+
+    @property
+    def a_ineq(self):
+        return self.a_ub
+
+    @property
+    def b_ineq(self):
+        return self.b_ub
