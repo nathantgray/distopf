@@ -1,9 +1,10 @@
 import numpy as np
 import distopf as opf
 from distopf.lindist_base_modular import LinDistModelModular
-from distopf.lindist_mi import LinDistModelCapMI
+from distopf.lindist_capacitor_mi import LinDistModelCapMI
 from distopf.opf_solver import cvxpy_mi_solve
 import pandas as pd
+import cvxpy as cp
 
 case = opf.DistOPFCase(
     data_path="ieee123_30der",
@@ -44,13 +45,11 @@ print(result.fun)
 print(result.runtime)
 v = model.get_voltages(result.x)
 s = model.get_apparent_power_flows(result.x)
-dec_var = model.get_decision_variables(result.x)
+dec_var = model.get_q_gens(result.x)
 print(model.get_uc(result.x))
 print(model.get_zc(result.x))
 print(model.get_q_caps(result.x))
-opf.plot_network(model, v, s, dec_var, "Q", show_reactive_power=True).show(
-    renderer="browser"
-)
+opf.plot_network(model, v, s, dec_var, "Q", show_reactive_power=True).show()
 
 # opf.compare_voltages(v, new_v).show(renderer="browser")
 # opf.compare_flows(s, new_s).show(renderer="browser")

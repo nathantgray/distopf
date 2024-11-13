@@ -74,18 +74,23 @@ def cp_obj_loss(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression
         Expression to be minimized
 
     """
-    f_list = []
-    for j in range(1, model.nb):
-        for a in "abc":
-            if model.phase_exists(a, j):
-                i = model.idx("bi", j, a)[0]
-                f_list.append(
-                    model.r[a + a][i, j] * (xk[model.idx("pij", j, a)[0]] ** 2)
-                )
-                f_list.append(
-                    model.r[a + a][i, j] * (xk[model.idx("qij", j, a)[0]] ** 2)
-                )
-    return cp.sum(f_list)
+    index_list = []
+    r_list = np.array([])
+    for a in "abc":
+        if not model.phase_exists(a):
+            continue
+        i = model.x_maps[a].bi
+        j = model.x_maps[a].bj
+        r_list = np.append(r_list, np.array(model.r[a + a][i, j]).flatten())
+        r_list = np.append(r_list, np.array(model.r[a + a][i, j]).flatten())
+        index_list = np.append(index_list, model.x_maps[a].pij.to_numpy().flatten())
+        index_list = np.append(index_list, model.x_maps[a].qij.to_numpy().flatten())
+    r = np.array(r_list)
+    ix = np.array(index_list).astype(int)
+    if isinstance(xk, cp.Variable):
+        return cp.vdot(r, xk[ix]**2)
+    else:
+        return np.vdot(r, xk[ix]**2)
 
 
 def cp_obj_target_p_3ph(
@@ -350,7 +355,7 @@ def cvxpy_mi_solve(
     """
     m = model
     tic = perf_counter()
-    solver = kwargs.get("solver", cp.GUROBI)
+    solver = kwargs.get("solver")
     x0 = kwargs.get("x0", None)
     if x0 is None:
         lin_res = lp_solve(m, np.zeros(m.n_x))

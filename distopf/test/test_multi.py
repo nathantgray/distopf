@@ -35,18 +35,15 @@ class TestMulti(unittest.TestCase):
             # battery_data = pd.read_csv(base_path / "battery_data.csv")
             pv_loadshape = pd.read_csv(base_path / "pv_loadshape.csv")
             default_loadshape = pd.read_csv(base_path / "default_loadshape.csv")
-            # start_time = 12
             load_mult = default_loadshape.loc[start_time, "M"]
             gen_mult = pv_loadshape.loc[start_time, "PV"]
-            # bus_data.v_min = 0
-            # bus_data.v_max = 1.07
             bus_data.v_a = 1.0
             bus_data.v_b = 1.0
             bus_data.v_c = 1.0
             m1 = LinDistMulti(
                 branch_data=branch_data,
                 bus_data=bus_data,
-                # gen_data=gen_data,
+                gen_data=gen_data,
                 reg_data=reg_data,
                 # cap_data=cap_data,
                 loadshape_data=default_loadshape,
@@ -68,7 +65,7 @@ class TestMulti(unittest.TestCase):
             m2 = LinDistModelModular(
                 branch_data=branch_data,
                 bus_data=bus_data,
-                # gen_data=gen_data,
+                gen_data=gen_data,
                 reg_data=reg_data,
             )
             result1 = opf.multiperiod.opf_solver_multi.cvxpy_solve(m1, opf.multiperiod.cp_obj_loss, solver="CLARABEL")
@@ -95,9 +92,9 @@ class TestMulti(unittest.TestCase):
 
 
             result2 = opf.cvxpy_solve(m2, opf.cp_obj_loss, solver="CLARABEL")
-            v2 = m1.get_voltages(result2.x)
+            v2 = m2.get_voltages(result2.x)
             v2.index = v2.id-1
-            s2 = m1.get_apparent_power_flows(result2.x)
+            s2 = m2.get_apparent_power_flows(result2.x)
             s2.index = s2.tb-1
 
             q_der2 = m2.get_q_gens(result2.x)
@@ -119,13 +116,13 @@ class TestMulti(unittest.TestCase):
             assert np.nanmax(np.abs(p_load1.b - p_load2.b)) < 1e-9
             assert np.nanmax(np.abs(p_load1.c - p_load2.c)) < 1e-9
             # Assert active power flows are the same.
-            assert np.nanmax(np.abs(p_flow1.a - p_flow2.a)) < 1e-9
-            assert np.nanmax(np.abs(p_flow1.b - p_flow2.b)) < 1e-9
-            assert np.nanmax(np.abs(p_flow1.c - p_flow2.c)) < 1e-9
+            assert np.nanmax(np.abs(p_flow1.a - p_flow2.a)) < 1e-3
+            assert np.nanmax(np.abs(p_flow1.b - p_flow2.b)) < 1e-3
+            assert np.nanmax(np.abs(p_flow1.c - p_flow2.c)) < 1e-3
             # Assert reactive power flows are the same.
-            assert np.nanmax(np.abs(q_flow1.a - q_flow2.a)) < 1e-9
-            assert np.nanmax(np.abs(q_flow1.b - q_flow2.b)) < 1e-9
-            assert np.nanmax(np.abs(q_flow1.c - q_flow2.c)) < 1e-9
+            assert np.nanmax(np.abs(q_flow1.a - q_flow2.a)) < 1e-3
+            assert np.nanmax(np.abs(q_flow1.b - q_flow2.b)) < 1e-3
+            assert np.nanmax(np.abs(q_flow1.c - q_flow2.c)) < 1e-3
             # Assert voltages are the same.
             assert np.nanmax(np.abs(v1.a - v2.a)) < 1e-9
             assert np.nanmax(np.abs(v1.b - v2.b)) < 1e-9

@@ -677,11 +677,12 @@ class LinDistModelModular:
             ]
         )
         bus_id = index + 1
-        decision_variables = pd.DataFrame(columns=["name", "a", "b", "c"], index=bus_id)
-        decision_variables.loc[bus_id, "name"] = self.bus.loc[index, "name"].to_numpy()
+        df = pd.DataFrame(columns=["id", "name", "a", "b", "c"], index=bus_id)
+        df.id = bus_id
+        df.loc[bus_id, "name"] = self.bus.loc[index, "name"].to_numpy()
         for a in "abc":
-            decision_variables.loc[variable_map[a].index + 1, a] = x[variable_map[a]]
-        return decision_variables
+            df.loc[variable_map[a].index + 1, a] = x[variable_map[a]]
+        return df
 
     def get_voltages(self, x):
         v_df = self.get_device_variables(x, self.v_map)
@@ -705,7 +706,7 @@ class LinDistModelModular:
 
     def get_apparent_power_flows(self, x):
         s_df = pd.DataFrame(
-            columns=["fb", "tb", "a", "b", "c"], index=range(2, self.nb + 1)
+            columns=["fb", "tb", "from_name", "to_name", "a", "b", "c"], index=range(2, self.nb + 1)
         )
         s_df["a"] = s_df["a"].astype(complex)
         s_df["b"] = s_df["b"].astype(complex)
@@ -715,8 +716,10 @@ class LinDistModelModular:
             fb_names = self.bus.name[fb_idxs].to_numpy()
             tb_idxs = self.x_maps[ph].bj.values
             tb_names = self.bus.name[tb_idxs].to_numpy()
-            s_df.loc[self.x_maps[ph].bj.values + 1, "fb"] = fb_names
-            s_df.loc[self.x_maps[ph].bj.values + 1, "tb"] = tb_names
+            s_df.loc[self.x_maps[ph].bj.values + 1, "fb"] = fb_idxs + 1
+            s_df.loc[self.x_maps[ph].bj.values + 1, "tb"] = tb_idxs + 1
+            s_df.loc[self.x_maps[ph].bj.values + 1, "from_name"] = fb_names
+            s_df.loc[self.x_maps[ph].bj.values + 1, "to_name"] = tb_names
             s_df.loc[self.x_maps[ph].bj.values + 1, ph] = (
                 x[self.x_maps[ph].pij] + 1j * x[self.x_maps[ph].qij]
             )

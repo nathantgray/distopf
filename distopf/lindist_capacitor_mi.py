@@ -112,7 +112,11 @@ class LinDistModelCapMI(LinDistModelModular):
         return a_ineq, b_ineq
 
     def create_inequality_constraints(self):
-        return self.create_capacitor_constraints()
+        a_cap, b_cap = self.create_capacitor_constraints()
+        a_inv, b_inv = self.create_octagon_constraints()
+        a_ub = np.r_[a_cap, a_inv]
+        b_ub = np.r_[b_cap, b_inv]
+        return a_ub, b_ub
 
     def get_zc(self, x):
         return self.get_device_variables(x, self.zc_map)

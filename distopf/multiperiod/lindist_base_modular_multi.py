@@ -1023,8 +1023,8 @@ class LinDistModelModular:
                 fb_names = self.bus.name[fb_idxs].to_numpy()
                 tb_idxs = self.x_maps[t][ph].bj.values
                 tb_names = self.bus.name[tb_idxs].to_numpy()
-                s_df.loc[self.x_maps[t][ph].bj.values + 1, "fb"] = fb_idxs
-                s_df.loc[self.x_maps[t][ph].bj.values + 1, "tb"] = tb_idxs
+                s_df.loc[self.x_maps[t][ph].bj.values + 1, "fb"] = fb_idxs + 1
+                s_df.loc[self.x_maps[t][ph].bj.values + 1, "tb"] = tb_idxs + 1
                 s_df.loc[self.x_maps[t][ph].bj.values + 1, "from_name"] = fb_names
                 s_df.loc[self.x_maps[t][ph].bj.values + 1, "to_name"] = tb_names
                 s_df.loc[self.x_maps[t][ph].bj.values + 1, ph] = (

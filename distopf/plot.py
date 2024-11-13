@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 from distopf import LinDistModel
 
 # plot color codes for distribution system plots
+
 COLORCODES = {
     # key: circuit element type
     # values: color, linewidth
@@ -140,8 +141,8 @@ def compare_flows(s1: pd.DataFrame, s2: pd.DataFrame) -> go.Figure:
     s1 = s1.melt(
         ignore_index=True, id_vars=["fb", "tb"], var_name="phase", value_name="s"
     )
-    s1["p"] = s1.s.apply(lambda x: x.real)
-    s1["q"] = s1.s.apply(lambda x: x.imag)
+    s1["p"] = s1.s.apply(np.real)
+    s1["q"] = s1.s.apply(np.imag)
     del s1["s"]
     s1 = s1.melt(
         ignore_index=True,
@@ -152,8 +153,8 @@ def compare_flows(s1: pd.DataFrame, s2: pd.DataFrame) -> go.Figure:
     s2 = s2.melt(
         ignore_index=True, id_vars=["fb", "tb"], var_name="phase", value_name="s"
     )
-    s2["p"] = s2.s.apply(lambda x: x.real)
-    s2["q"] = s2.s.apply(lambda x: x.imag)
+    s2["p"] = s2.s.apply(np.real)
+    s2["q"] = s2.s.apply(np.imag)
     del s2["s"]
     s2 = s2.melt(
         ignore_index=True,
@@ -363,14 +364,14 @@ def plot_network(
         hoverinfo="none",
     )
 
-    text = [f"Bus: '{name}':" for name in bus_data["name"]]
+    text = [f"Bus: '{name}'      A   ||   B   ||   C" for name in bus_data["name"]]
     if _v is not None:
         node_trace.marker.color = _v[phase_list].mean(axis=1)
         for i, bus_row in enumerate(bus_data.itertuples()):
-            va = _v.loc[bus_row.id, "a"]
-            vb = _v.loc[bus_row.id, "b"]
-            vc = _v.loc[bus_row.id, "c"]
-            text[i] = text[i] + f"<br>\t|V|:    {va:.3f}  {vb:.3f}  {vc:.3f}"
+            va = _v.loc[_v.id == bus_row.id, "a"].to_numpy().flatten()[0]
+            vb = _v.loc[_v.id == bus_row.id, "b"].to_numpy().flatten()[0]
+            vc = _v.loc[_v.id == bus_row.id, "c"].to_numpy().flatten()[0]
+            text[i] = text[i] + f"<br>    |V|:      {va:.3f}  {vb:.3f}  {vc:.3f}"
     for i, bus_row in enumerate(bus_data.itertuples()):
         pla = bus_row.pl_a
         plb = bus_row.pl_b
@@ -378,8 +379,8 @@ def plot_network(
         qla = bus_row.ql_a
         qlb = bus_row.ql_b
         qlc = bus_row.ql_c
-        text[i] += f"<br>P-Load: {pla:.3f}  {plb:.3f}  {plc:.3f}"
-        text[i] += f"<br>Q-Load: {qla:.3f}  {qlb:.3f}  {qlc:.3f}"
+        text[i] += f"<br>    P-Load: {pla:.3f}  {plb:.3f}  {plc:.3f}"
+        text[i] += f"<br>    Q-Load: {qla:.3f}  {qlb:.3f}  {qlc:.3f}"
 
     if cap_data is not None:
         for i, bus_row in enumerate(bus_data.itertuples()):
@@ -389,7 +390,7 @@ def plot_network(
                 ].to_numpy()[0]
                 text[
                     i
-                ] += f"<br>Cap Q:    {q_cap[0]:.3f}  {q_cap[1]:.3f}  {q_cap[2]:.3f}"
+                ] += f"<br>    Q-Cap:  {q_cap[0]:.3f}  {q_cap[1]:.3f}  {q_cap[2]:.3f}"
 
     for i, bus_row in enumerate(bus_data.itertuples()):
         if bus_row.id in gen_data.id.to_numpy():
@@ -407,8 +408,8 @@ def plot_network(
                 p_gen = control_values.loc[
                     control_values.name == bus_row.name, ["a", "b", "c"]
                 ].to_numpy()[0]
-            text[i] += f"<br>Gen P:    {p_gen[0]:.3f}  {p_gen[1]:.3f}  {p_gen[2]:.3f}"
-            text[i] += f"<br>Gen Q:    {q_gen[0]:.3f}  {q_gen[1]:.3f}  {q_gen[2]:.3f}"
+            text[i] += f"<br>    P-Gen:  {p_gen[0]:.3f}  {p_gen[1]:.3f}  {p_gen[2]:.3f}"
+            text[i] += f"<br>    Q-Gen:  {q_gen[0]:.3f}  {q_gen[1]:.3f}  {q_gen[2]:.3f}"
     # Create lines for edges
     if _s is not None:
         _s["p_abs"] = np.abs(np.real(_s.loc[:, phase_list].sum(axis=1)))
@@ -422,16 +423,17 @@ def plot_network(
         _s["p_direction"] = np.sign(np.real(_s.loc[:, phase_list].sum(axis=1)) + 1e-6)
         _s["q_direction"] = np.sign(np.imag(_s.loc[:, phase_list].sum(axis=1)) + 1e-6)
         for i, bus_row in enumerate(bus_data.itertuples()):
-            # tb_name = bus_row.name
-            tb = bus_row.name
+            tb = bus_row.id - 1
+            to_name = bus_row.name
             if tb not in _s.tb.to_numpy():
                 continue
-            s_edge = _s.loc[_s.tb == bus_row.name].to_dict(orient="list")
-            fb = s_edge["fb"][0]
+            s_edge = _s.loc[_s.tb == bus_row.id].to_dict(orient="list")
+            fb = s_edge.get("fb")[0]
+            from_name = s_edge.get("from_name", s_edge.get("fb", [0]))[0]
             # fb_name = bus_data.loc[bus_data.id == fb, "name"].values[0]
             sa, sb, sc = s_edge["a"][0], s_edge["b"][0], s_edge["c"][0]
             new_text = (
-                f"<br> Branch {fb}→{tb}"
+                f"<br>Branch {from_name}→{to_name}"
                 f"<br>    P flow:  {np.real(sa):.3f}  {np.real(sb):.3f}  {np.real(sc):.3f}"
                 f"<br>    Q flow:  {np.imag(sa):.3f}  {np.imag(sb):.3f}  {np.imag(sc):.3f}"
             )
@@ -447,16 +449,16 @@ def plot_network(
         target_data = bus_data[bus_data["id"] == edge["tb"]]
         x0, x1 = source_data["x"].values[0], target_data["x"].values[0]
         y0, y1 = source_data["y"].values[0], target_data["y"].values[0]
-        linewidth = COLORCODES[edge["type"]][1]
-        dash = COLORCODES[edge["type"]][2]
+        linewidth = COLORCODES.get(edge["type"], ["black", 4, "solid"])[1]
+        dash = COLORCODES.get(edge["type"], ["black", 4, "solid"])[2]
         direction = 1
         if _s is not None:
-            s_edge = _s.loc[edge.tb, :]
-            linewidth = s_edge.p_norm
-            direction = s_edge.p_direction
+            s_edge = _s.loc[_s.tb == edge.tb, :]
+            linewidth = s_edge.p_norm.to_numpy().flatten()[0]
+            direction = s_edge.p_direction.to_numpy().flatten()[0]
             if show_reactive_power:
-                linewidth = s_edge.q_norm
-                direction = s_edge.q_direction
+                linewidth = s_edge.q_norm.to_numpy().flatten()[0]
+                direction = s_edge.q_direction.to_numpy().flatten()[0]
             if (
                 show_phases.lower() != "abc"
                 and show_phases.lower() not in edge.phases.lower()
