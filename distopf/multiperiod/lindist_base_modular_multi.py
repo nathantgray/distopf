@@ -767,8 +767,8 @@ class LinDistModelModular:
         p_load_nom, q_load_nom = 0, 0
         load_mult = self.loadshape.M[t]
         if self.bus.bus_type[j] == opf.PQ_BUS:
-            p_load_nom = self.bus[f"pl_{a}"][j]
-            q_load_nom = self.bus[f"ql_{a}"][j]
+            p_load_nom = self.bus[f"pl_{a}"][j] * load_mult
+            q_load_nom = self.bus[f"ql_{a}"][j] * load_mult
         # equation indexes
         pl = self.idx("pl", j, a, t=t)
         ql = self.idx("ql", j, a, t=t)
@@ -777,11 +777,11 @@ class LinDistModelModular:
         if self.bus.bus_type[j] != opf.PQ_FREE:
             # Set Load equation variable coefficients in a_eq
             a_eq[pl, pl] = 1
-            a_eq[pl, vj] = -(self.bus.cvr_p[j] / 2) * p_load_nom * load_mult
-            b_eq[pl] = (1 - (self.bus.cvr_p[j] / 2)) * p_load_nom * load_mult
+            a_eq[pl, vj] = -(self.bus.cvr_p[j] / 2) * p_load_nom
+            b_eq[pl] = (1 - (self.bus.cvr_p[j] / 2)) * p_load_nom
             a_eq[ql, ql] = 1
-            a_eq[ql, vj] = -(self.bus.cvr_q[j] / 2) * q_load_nom * load_mult
-            b_eq[ql] = (1 - (self.bus.cvr_q[j] / 2)) * q_load_nom * load_mult
+            a_eq[ql, vj] = -(self.bus.cvr_q[j] / 2) * q_load_nom
+            b_eq[ql] = (1 - (self.bus.cvr_q[j] / 2)) * q_load_nom
         return a_eq, b_eq
 
     def add_capacitor_model(self, a_eq, b_eq, j, phase, t=0):
