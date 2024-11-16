@@ -12,7 +12,7 @@ from scipy.sparse import csr_array
 
 import pandas as pd
 from numpy import sqrt
-from distopf.lindist_base_modular import get
+from distopf.lindist import get
 from scipy.optimize import OptimizeResult
 
 
@@ -132,7 +132,7 @@ class LinDistModelRegulatorMI(opf.LinDistModelCapMI):
         gen_data.a_mode = "CONSTANT_PQ"
         gen_data.b_mode = "CONSTANT_PQ"
         gen_data.c_mode = "CONSTANT_PQ"
-        m0 = opf.LinDistModelModular(
+        m0 = opf.LinDistModel(
             branch_data=case.branch_data,
             bus_data=bus_data,
             gen_data=gen_data,

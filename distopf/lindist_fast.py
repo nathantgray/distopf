@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
-from scipy.sparse import csr_array, coo_array, dok_array, lil_array
+from scipy.sparse import csr_array
 import distopf as opf
 
 
@@ -127,7 +127,7 @@ def _handle_bus_input(bus_data: pd.DataFrame) -> pd.DataFrame:
     return bus
 
 
-class LinDistModelModular:
+class LinDistModelFast:
     """
     LinDistFlow Model base class.
 
@@ -208,8 +208,6 @@ class LinDistModelModular:
         # ~~ initialize index pointers ~~
         self.x_maps, self.n_x = self._variable_tables(self.branch)
         self.v_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
-        self.pl_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
-        self.ql_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
         self.pg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
@@ -217,6 +215,7 @@ class LinDistModelModular:
         self._a_eq, self._b_eq = None, None
         self._a_ub, self._b_ub = None, None
         self._bounds = None
+        self._bounds_tuple = None
 
     @staticmethod
     def _init_rx(branch):
@@ -241,15 +240,15 @@ class LinDistModelModular:
         return r, x
 
     @staticmethod
-    def _variable_tables(branch):
+    def _variable_tables(branch, n_x=0):
         x_maps = {}
-        n_x = 0
         for a in "abc":
             indices = branch.phases.str.contains(a)
             lines = branch.loc[indices, ["fb", "tb"]].values.astype(int) - 1
             n_lines = len(lines)
             df = pd.DataFrame(columns=["bi", "bj", "pij", "qij"], index=range(n_lines))
             if n_lines == 0:
+                x_maps[a] = df.astype(int)
                 continue
             g = nx.Graph()
             g.add_edges_from(lines)
@@ -382,10 +381,6 @@ class LinDistModelModular:
             return self.pg_map[phase].get(node_j, [])
         if var in ["qg", "q_gen"]:  # reactive power generation at node
             return self.qg_map[phase].get(node_j, [])
-        if var in ["pl", "p_load"]:  # active power load at node
-            return self.pl_map[phase].get(node_j, [])
-        if var in ["ql", "q_load"]:  # reactive power load at node
-            return self.ql_map[phase].get(node_j, [])
         if var in ["qc", "q_cap"]:  # reactive power injection by capacitor
             return self.qc_map[phase].get(node_j, [])
         ix = self.user_added_idx(var, node_j, phase)
@@ -428,44 +423,42 @@ class LinDistModelModular:
                     continue
                 a_eq, b_eq = self.add_power_flow_model(a_eq, b_eq, j, a)
                 a_eq, b_eq = self.add_voltage_drop_model(a_eq, b_eq, j, a, b, c)
+                a_eq, b_eq = self.add_swing_voltage_model(a_eq, b_eq, j, a)
+                a_eq, b_eq = self.add_regulator_model(a_eq, b_eq, j, a)
                 a_eq, b_eq = self.add_load_model(a_eq, b_eq, j, a)
                 a_eq, b_eq = self.add_generator_model(a_eq, b_eq, j, a)
                 a_eq, b_eq = self.add_capacitor_model(a_eq, b_eq, j, a)
-        return a_eq, b_eq
+        return csr_array(a_eq), b_eq
 
     def add_power_flow_model(self, a_eq, b_eq, j, phase):
         pij = self.idx("pij", j, phase)
         qij = self.idx("qij", j, phase)
         pjk = self.idx("pjk", j, phase)
         qjk = self.idx("qjk", j, phase)
-        pl = self.idx("pl", j, phase)
-        ql = self.idx("ql", j, phase)
         pg = self.idx("pg", j, phase)
         qg = self.idx("qg", j, phase)
         qc = self.idx("q_cap", j, phase)
         # Set P equation variable coefficients in a_eq
         a_eq[pij, pij] = 1
         a_eq[pij, pjk] = -1
-        a_eq[pij, pl] = -1
         a_eq[pij, pg] = 1
         # Set Q equation variable coefficients in a_eq
         a_eq[qij, qij] = 1
         a_eq[qij, qjk] = -1
-        a_eq[qij, ql] = -1
         a_eq[qij, qg] = 1
         a_eq[qij, qc] = 1
         return a_eq, b_eq
 
     def add_voltage_drop_model(self, a_eq, b_eq, j, a, b, c):
+        if self.reg is not None:
+            if j in self.reg.tb:
+                return a_eq, b_eq
         r, x = self.r, self.x
         aa = "".join(sorted(a + a))
         # if ph=='cab', then a+b=='ca'. Sort so ab=='ac'
         ab = "".join(sorted(a + b))
         ac = "".join(sorted(a + c))
         i = self.idx("bi", j, a)[0]  # get the upstream node, i, on branch from i to j
-        reg_ratio = 1
-        if self.reg is not None:
-            reg_ratio = get(self.reg[f"ratio_{a}"], j, 1)
         pij = self.idx("pij", j, a)
         qij = self.idx("qij", j, a)
         pijb = self.idx("pij", j, b)
@@ -475,19 +468,8 @@ class LinDistModelModular:
         vi = self.idx("v", i, a)
         vj = self.idx("v", j, a)
         # Set V equation variable coefficients in a_eq and constants in b_eq
-        if self.bus.bus_type[i] == opf.SWING_BUS:  # Swing bus
-            a_eq[vi, vi] = 1
-            b_eq[vi] = self.bus.at[i, f"v_{a}"] ** 2
-
-        if self.reg is not None:
-            if j in self.reg.tb:
-                reg_ratio = self.reg.at[j, f"ratio_{a}"]
-                a_eq[vj, vj] = 1
-                a_eq[vj, vi] = -1 * reg_ratio**2
-                return a_eq, b_eq
-
         a_eq[vj, vj] = 1
-        a_eq[vj, vi] = -1 * reg_ratio**2
+        a_eq[vj, vi] = -1
         a_eq[vj, pij] = 2 * r[aa][i, j]
         a_eq[vj, qij] = 2 * x[aa][i, j]
         if self.phase_exists(b, j):
@@ -496,6 +478,29 @@ class LinDistModelModular:
         if self.phase_exists(c, j):
             a_eq[vj, pijc] = -r[ac][i, j] - sqrt(3) * x[ac][i, j]
             a_eq[vj, qijc] = -x[ac][i, j] + sqrt(3) * r[ac][i, j]
+        return a_eq, b_eq
+
+
+    def add_regulator_model(self, a_eq, b_eq, j, a):
+        i = self.idx("bi", j, a)[0]  # get the upstream node, i, on branch from i to j
+        vi = self.idx("v", i, a)
+        vj = self.idx("v", j, a)
+
+        if self.reg is not None:
+            if j in self.reg.tb:
+                reg_ratio = get(self.reg[f"ratio_{a}"], j, 1)
+                a_eq[vj, vj] = 1
+                a_eq[vj, vi] = -1 * reg_ratio**2
+                return a_eq, b_eq
+        return a_eq, b_eq
+
+    def add_swing_voltage_model(self, a_eq, b_eq, j, a):
+        i = self.idx("bi", j, a)[0]  # get the upstream node, i, on branch from i to j
+        vi = self.idx("v", i, a)
+        # Set V equation variable coefficients in a_eq and constants in b_eq
+        if self.bus.bus_type[i] == opf.SWING_BUS:  # Swing bus
+            a_eq[vi, vi] = 1
+            b_eq[vi] = self.bus.at[i, f"v_{a}"] ** 2
         return a_eq, b_eq
 
     def add_generator_model(self, a_eq, b_eq, j, phase):
@@ -517,24 +522,19 @@ class LinDistModelModular:
         return a_eq, b_eq
 
     def add_load_model(self, a_eq, b_eq, j, phase):
-        a = phase
+        pij = self.idx("pij", j, phase)
+        qij = self.idx("qij", j, phase)
+        vj = self.idx("v", j, phase)
         p_load_nom, q_load_nom = 0, 0
         if self.bus.bus_type[j] == opf.PQ_BUS:
-            p_load_nom = self.bus[f"pl_{a}"][j]
-            q_load_nom = self.bus[f"ql_{a}"][j]
-        # equation indexes
-        pl = self.idx("pl", j, a)
-        ql = self.idx("ql", j, a)
-        vj = self.idx("v", j, a)
-        # boundary p and q
+            p_load_nom = self.bus[f"pl_{phase}"][j]
+            q_load_nom = self.bus[f"ql_{phase}"][j]
         if self.bus.bus_type[j] != opf.PQ_FREE:
             # Set Load equation variable coefficients in a_eq
-            a_eq[pl, pl] = 1
-            a_eq[pl, vj] = -(self.bus.cvr_p[j] / 2) * p_load_nom
-            b_eq[pl] = (1 - (self.bus.cvr_p[j] / 2)) * p_load_nom
-            a_eq[ql, ql] = 1
-            a_eq[ql, vj] = -(self.bus.cvr_q[j] / 2) * q_load_nom
-            b_eq[ql] = (1 - (self.bus.cvr_q[j] / 2)) * q_load_nom
+            a_eq[pij, vj] =  -(self.bus.cvr_p[j] / 2) * p_load_nom
+            b_eq[pij] = (1 - (self.bus.cvr_p[j] / 2)) * p_load_nom
+            a_eq[qij, vj] = -(self.bus.cvr_q[j] / 2) * q_load_nom
+            b_eq[qij] = (1 - (self.bus.cvr_q[j] / 2)) * q_load_nom
         return a_eq, b_eq
 
     def add_capacitor_model(self, a_eq, b_eq, j, phase):
@@ -549,7 +549,8 @@ class LinDistModelModular:
         return a_eq, b_eq
 
     def create_inequality_constraints(self):
-        return self.create_octagon_constraints()
+        a_ub, b_ub = self.create_octagon_constraints()
+        return csr_array(a_ub), b_ub
 
     def create_hexagon_constraints(self):
         """
@@ -605,7 +606,7 @@ class LinDistModelModular:
                 ineq5 += 6
                 ineq6 += 6
 
-        return a_ineq, b_ineq
+        return csr_array(a_ineq), b_ineq
 
     def create_octagon_constraints(self):
         """
@@ -658,7 +659,7 @@ class LinDistModelModular:
                 ineq4 += n_inequalities
                 ineq5 += n_inequalities
 
-        return a_ineq, b_ineq
+        return csr_array(a_ineq), b_ineq
 
     def parse_results(self, x, variable_name: str):
         values = pd.DataFrame(columns=["name", "a", "b", "c"])
@@ -688,12 +689,6 @@ class LinDistModelModular:
         v_df = self.get_device_variables(x, self.v_map)
         v_df.loc[:, ["a", "b", "c"]] = v_df.loc[:, ["a", "b", "c"]] ** 0.5
         return v_df
-
-    def get_p_loads(self, x):
-        return self.get_device_variables(x, self.pl_map)
-
-    def get_q_loads(self, x):
-        return self.get_device_variables(x, self.ql_map)
 
     def get_q_gens(self, x):
         return self.get_device_variables(x, self.qg_map)
@@ -773,7 +768,9 @@ class LinDistModelModular:
     def bounds(self):
         if self._bounds is None:
             self._bounds = self.init_bounds()
-        return list(map(tuple, self._bounds))
+        if self._bounds_tuple is None:
+            self._bounds_tuple = list(map(tuple, self._bounds))
+        return self._bounds_tuple
 
     @property
     def x_min(self):

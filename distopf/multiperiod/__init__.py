@@ -12,5 +12,6 @@ from distopf.multiperiod.opf_solver_multi import (
     cp_obj_target_p_total,
     cp_obj_target_q_3ph,
     cp_obj_target_q_total,
+    cp_obj_curtail,
     cp_obj_none,
 )

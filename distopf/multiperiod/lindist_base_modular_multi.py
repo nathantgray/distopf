@@ -209,10 +209,6 @@ class LinDistModelModular:
         DataFrame containing PV profile of 1h interval for 24h
     n_steps : int,
         Number of time intervals for multi period optimization. Default is 24.
-    der : bool,
-        Indicates whether DER is present or not. Default is True.
-    battery : bool,
-        Indicates whether battery is present or not. Default is True.
 
     """
 
@@ -228,8 +224,7 @@ class LinDistModelModular:
         bat_data: pd.DataFrame = None,
         start_step: int = 0,
         n_steps: int = 24,
-        der: bool = True,
-        battery: bool = True,
+        delta_t: float = 1,  # hours per step
     ):
         # ~~~~~~~~~~~~~~~~~~~~ Load Data Frames ~~~~~~~~~~~~~~~~~~~~
         self.branch = _handle_branch_input(branch_data)
@@ -242,8 +237,7 @@ class LinDistModelModular:
         self.bat = _handle_bat_input(bat_data)
         self.start_step = start_step
         self.n_steps = n_steps
-        self.der = True
-        self.battery = True
+        self.delta_t = delta_t
         self.SWING = self.bus.loc[self.bus.bus_type == "SWING", "id"].to_numpy()[0] - 1
 
         # ~~~~~~~~~~~~~~~~~~~~ prepare data ~~~~~~~~~~~~~~~~~~~~
@@ -354,8 +348,6 @@ class LinDistModelModular:
             self.soc_map[t], self.n_x = self._add_device_variables(
                 self.n_x, self.bat_buses
             )
-            if t == 0:
-                self.n_x_1period = self.n_x
         self.x_maps: dict[int, dict[str, pd.Series]]
         self.v_map: dict[int, dict[str, pd.Series]]
         self.pl_map: dict[int, dict[str, pd.Series]]
@@ -803,9 +795,10 @@ class LinDistModelModular:
         soc_j = self.idx("soc", j, phase, t=t)
         discharge_j = self.idx("discharge", j, phase, t=t)
         charge_j = self.idx("charge", j, phase, t=t)
-        nc = self.bat["nc_" + phase].get(j, 0)
-        nd = self.bat["nd_" + phase].get(j, float("inf"))
-        soc0 = self.bat["bmin_" + phase].get(j, 0)
+        nc = self.bat[f"nc_{phase}"].get(j, 0)
+        nd = self.bat[f"nd_{phase}"].get(j, float("inf"))
+        soc0 = self.bat[f"bmin_{phase}"].get(j, 0)
+        # soc0 = self.bat[f"energy_start_{phase}"].get(j, 0)
         dt = 1  # 1 hour time step assumed, currently soc is in units of p_base*1hour (default: 1MWh)
         a_eq[soc_j, discharge_j] = 1 / nd * dt
         a_eq[soc_j, charge_j] = -nc * dt
@@ -823,18 +816,18 @@ class LinDistModelModular:
         n_rows_ineq = n_inequalities * self.n_bats * self.n_steps
         a_ineq = zeros((n_rows_ineq, self.n_x))
         b_ineq = zeros(n_rows_ineq)
-        ineq1 = 0
-        for t in range(self.start_step, self.start_step + self.n_steps):
-            for a in "abc":
-                for j in self.bat.index:
-                    if not self.phase_exists(a, j):
-                        continue
-                    discharge_j = self.idx("discharge", j, a, t=t)
-                    charge_j = self.idx("charge", j, a, t=t)
-                    a_ineq[ineq1, discharge_j] = 1
-                    a_ineq[ineq1, charge_j] = -1
-                    b_ineq[ineq1] = self.bat[f"hmax_{a}"].get(j, 0)
-                    ineq1 += 1
+        # ineq1 = 0
+        # for t in range(self.start_step, self.start_step + self.n_steps):
+        #     for a in "abc":
+        #         for j in self.bat.index:
+        #             if not self.phase_exists(a, j):
+        #                 continue
+        #             discharge_j = self.idx("discharge", j, a, t=t)
+        #             charge_j = self.idx("charge", j, a, t=t)
+        #             a_ineq[ineq1, discharge_j] = 1
+        #             a_ineq[ineq1, charge_j] = -1
+        #             b_ineq[ineq1] = self.bat[f"hmax_{a}"].get(j, 0)
+        #             ineq1 += 1
         return a_ineq, b_ineq
 
     def create_hexagon_constraints(self):

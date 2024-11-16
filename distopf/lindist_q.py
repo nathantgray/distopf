@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_array
 from distopf.lindist_base import LinDistModel, get
 
 
@@ -219,7 +219,7 @@ class LinDistModelQ(LinDistModel):
                     a_eq[p_eqn, col("pl", a)] = -1
                     a_eq[q_eqn, col("ql", a)] = -1
 
-        return a_eq, b_eq
+        return csr_array(a_eq), b_eq
 
     def fast_model_update(
         self,

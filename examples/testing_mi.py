@@ -1,6 +1,6 @@
 import numpy as np
 import distopf as opf
-from distopf.lindist_base_modular import LinDistModelModular
+from distopf.lindist import LinDistModel
 from distopf.lindist_capacitor_mi import LinDistModelCapMI
 from distopf.opf_solver import cvxpy_mi_solve
 import pandas as pd

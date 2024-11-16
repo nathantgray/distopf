@@ -303,11 +303,71 @@ def cp_obj_target_q_total(model, xk, **kwargs):
     return f
 
 
-def cp_obj_curtail(model, xk):
-    f = cp.Constant(0)
-    for i in range(model.p_der_start_phase_idx["a"], model.q_der_start_phase_idx["a"]):
-        f += (model.bounds[i][1] - xk[i]) ** 2
-    return f
+def cp_obj_curtail(
+    model: LinDistModelModular, xk: cp.Variable, **kwargs
+) -> cp.Expression:
+    """
+    Objective function to minimize curtailment of DERs.
+    Min sum((P_der_max - P_der)^2)
+    Parameters
+    ----------
+    model : LinDistModel, or LinDistModelP, or LinDistModelQ
+    xk : cp.Variable
+
+    Returns
+    -------
+    f: cp.Expression
+        Expression to be minimized
+    """
+
+    if "start_step" in model.__dict__.keys():
+        start_step = model.start_step
+    else:
+        start_step = 0
+    all_pg_idx = np.array([])
+    for t in range(start_step, start_step + model.n_steps):
+        for a in "abc":
+            if not model.phase_exists(a):
+                continue
+            all_pg_idx = np.r_[
+                all_pg_idx,
+                model.pg_map[t][a].to_numpy()
+            ]
+    all_pg_idx = all_pg_idx.astype(int)
+    return cp.sum((model.x_max[all_pg_idx] - xk[all_pg_idx]) ** 2)
+
+def cp_obj_curtail_lp(
+    model: LinDistModelModular, xk: cp.Variable, **kwargs
+) -> cp.Expression:
+    """
+    Objective function to minimize curtailment of DERs.
+    Min sum((P_der_max - P_der)^2)
+    Parameters
+    ----------
+    model : LinDistModel, or LinDistModelP, or LinDistModelQ
+    xk : cp.Variable
+
+    Returns
+    -------
+    f: cp.Expression
+        Expression to be minimized
+    """
+
+    if "start_step" in model.__dict__.keys():
+        start_step = model.start_step
+    else:
+        start_step = 0
+    all_pg_idx = np.array([])
+    for t in range(start_step, start_step + model.n_steps):
+        for a in "abc":
+            if not model.phase_exists(a):
+                continue
+            all_pg_idx = np.r_[
+                all_pg_idx,
+                model.pg_map[t][a].to_numpy()
+            ]
+    all_pg_idx = all_pg_idx.astype(int)
+    return cp.sum((model.x_max[all_pg_idx] - xk[all_pg_idx]))
 
 
 def cp_obj_none(*args, **kwargs) -> cp.Constant:
@@ -357,9 +417,9 @@ def cvxpy_solve(
         h = []
     lb = [x[i] >= m.bounds[i][0] for i in range(m.n_x)]
     ub = [x[i] <= m.bounds[i][1] for i in range(m.n_x)]
-    error_percent = kwargs.get("error_percent", np.zeros(3))
-    target = kwargs.get("target", None)
-    expression = obj_func(m, x, target=target, error_percent=error_percent)
+    # error_percent = kwargs.get("error_percent", np.zeros(3))
+    # target = kwargs.get("target", None)
+    expression = obj_func(m, x, **kwargs)
     prob = cp.Problem(cp.Minimize(expression), g + h + ub + lb)
     prob.solve(verbose=False, solver=solver)
 
@@ -435,22 +495,14 @@ def lp_solve(model: LinDistModel, c: np.ndarray = None) -> OptimizeResult:
     if c is None:
         c = np.zeros(model.n_x)
     tic = perf_counter()
-    if model.battery:
-        res = linprog(
-            c,
-            A_eq=csr_array(model.a_eq),
-            b_eq=model.b_eq.flatten(),
-            A_ub=csr_array(model.a_ineq),
-            b_ub=model.b_ineq.flatten(),
-            bounds=model.bounds,
-        )
-    else:
-        res = linprog(
-            c,
-            A_eq=csr_array(model.a_eq),
-            b_eq=model.b_eq.flatten(),
-            bounds=model.bounds,
-        )
+    res = linprog(
+        c,
+        A_eq=csr_array(model.a_eq),
+        b_eq=model.b_eq.flatten(),
+        A_ub=csr_array(model.a_ineq),
+        b_ub=model.b_ineq.flatten(),
+        bounds=model.bounds,
+    )
     if not res.success:
         raise ValueError(res.message)
     runtime = perf_counter() - tic

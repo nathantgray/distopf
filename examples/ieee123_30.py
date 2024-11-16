@@ -2,7 +2,12 @@ import numpy as np
 import distopf as opf
 
 case = opf.DistOPFCase(
-    data_path="ieee123_30der", gen_mult=1, load_mult=1, v_swing=1.0, v_max=1.05, v_min=0.95
+    data_path="ieee123_30der",
+    gen_mult=1,
+    load_mult=1,
+    v_swing=1.0,
+    v_max=1.05,
+    v_min=0.95,
 )
 
 model = opf.LinDistModelQ(
@@ -10,7 +15,7 @@ model = opf.LinDistModelQ(
     bus_data=case.bus_data,
     gen_data=case.gen_data,
     cap_data=case.cap_data,
-    reg_data=case.reg_data
+    reg_data=case.reg_data,
 )
 # Solve model using provided objective function
 result = opf.lp_solve(model, np.zeros(model.n_x))
@@ -25,5 +30,6 @@ opf.plot_power_flows(s).show(renderer="browser")
 
 fig.write_image("123_plot.pdf", format="pdf", width=1000, height=1000)
 import time
+
 time.sleep(1)
 fig.write_image("123_plot.pdf", format="pdf", width=1000, height=1000)

@@ -7,11 +7,7 @@ from scipy.optimize import OptimizeResult, linprog
 from scipy.sparse import csr_array
 import distopf as opf
 from distopf import (
-    LinDistModelPQ,
-    LinDistModelQ,
-    LinDistModelP,
     LinDistModel,
-    LinDistModelModular,
     LinDistModelCapMI,
 )
 
@@ -49,12 +45,19 @@ def gradient_curtail(model: LinDistModel) -> np.ndarray:
         The coefficients of the linear objective function to be minimized.
 
     """
+
+
+    all_pg_idx = np.array([])
+    for a in "abc":
+        if not model.phase_exists(a):
+            continue
+        all_pg_idx = np.r_[
+            all_pg_idx,
+            model.pg_map[a].to_numpy()
+        ]
+    all_pg_idx = all_pg_idx.astype(int)
     c = np.zeros(model.n_x)
-    for i in range(
-        model.der_start_phase_idx["a"],
-        model.der_start_phase_idx["c"] + len(model.der_bus["c"]),
-    ):
-        c[i] = -1
+    c[all_pg_idx] = -1
     return c
 
 
@@ -93,6 +96,35 @@ def cp_obj_loss(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression
         return np.vdot(r, xk[ix]**2)
 
 
+def cp_obj_loss_old(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression:
+    """
+
+    Parameters
+    ----------
+    model : LinDistModel, or LinDistModelP, or LinDistModelQ
+    xk : cp.Variable
+    kwargs :
+
+    Returns
+    -------
+    f: cp.Expression
+        Expression to be minimized
+
+    """
+    f_list = []
+    for j in range(1, model.nb):
+        for a in "abc":
+            if model.phase_exists(a, j):
+                i = model.idx("bi", j, a)[0]
+                f_list.append(
+                    model.r[a + a][i, j] * (xk[model.idx("pij", j, a)[0]] ** 2)
+                )
+                f_list.append(
+                    model.r[a + a][i, j] * (xk[model.idx("qij", j, a)[0]] ** 2)
+                )
+    return cp.sum(f_list)
+
+
 def cp_obj_target_p_3ph(
     model: LinDistModel, xk: cp.Variable, **kwargs
 ) -> cp.Expression:
@@ -128,7 +160,7 @@ def cp_obj_target_p_3ph(
 
 
 def cp_obj_target_p_total(
-    model: LinDistModel | LinDistModelModular, xk: cp.Variable, **kwargs
+    model: LinDistModel | LinDistModel, xk: cp.Variable, **kwargs
 ) -> cp.Expression:
     """
 
@@ -248,7 +280,7 @@ def cp_obj_target_q_total(
 
 
 def cp_obj_curtail(
-    model: LinDistModelModular, xk: cp.Variable, **kwargs
+    model: LinDistModel, xk: cp.Variable, **kwargs
 ) -> cp.Expression:
     """
     Objective function to minimize curtailment of DERs.
@@ -263,12 +295,46 @@ def cp_obj_curtail(
     f: cp.Expression
         Expression to be minimized
     """
-    all_pg_idx = np.r_[
-        model.pg_map["a"].to_numpy(),
-        model.pg_map["b"].to_numpy(),
-        model.pg_map["c"].to_numpy(),
-    ]
+
+    all_pg_idx = np.array([])
+    for a in "abc":
+        if not model.phase_exists(a):
+            continue
+        all_pg_idx = np.r_[
+            all_pg_idx,
+            model.pg_map[a].to_numpy()
+        ]
+    all_pg_idx = all_pg_idx.astype(int)
     return cp.sum((model.x_max[all_pg_idx] - xk[all_pg_idx]) ** 2)
+
+
+def cp_obj_curtail_lp(
+    model: LinDistModel, xk: cp.Variable, **kwargs
+) -> cp.Expression:
+    """
+    Objective function to minimize curtailment of DERs.
+    Min sum((P_der_max - P_der)^2)
+    Parameters
+    ----------
+    model : LinDistModel, or LinDistModelP, or LinDistModelQ
+    xk : cp.Variable
+
+    Returns
+    -------
+    f: cp.Expression
+        Expression to be minimized
+    """
+
+    all_pg_idx = np.array([])
+    for a in "abc":
+        if not model.phase_exists(a):
+            continue
+        all_pg_idx = np.r_[
+            all_pg_idx,
+            model.pg_map[a].to_numpy()
+        ]
+    all_pg_idx = all_pg_idx.astype(int)
+    return cp.sum((model.x_max[all_pg_idx] - xk[all_pg_idx]))
 
 
 def cp_obj_none(*args, **kwargs) -> cp.Constant:
@@ -283,7 +349,7 @@ def cp_obj_none(*args, **kwargs) -> cp.Constant:
 
 
 def cvxpy_solve(
-    model: LinDistModel | LinDistModelPQ,
+    model: LinDistModel,
     obj_func: Callable,
     **kwargs,
 ) -> OptimizeResult:
@@ -461,32 +527,3 @@ def lp_solve(model: LinDistModel, c: np.ndarray = None) -> OptimizeResult:
     runtime = perf_counter() - tic
     res["runtime"] = runtime
     return res
-
-
-def cvxopt_solve_lp(model: LinDistModel, c: np.ndarray, **kwargs) -> OptimizeResult:
-    from cvxopt import solvers, matrix, sparse
-
-    tic = perf_counter()
-    c = matrix(c)
-    A = sparse(matrix(model.a_eq))
-    b = matrix(model.b_eq)
-
-    x_min = [model.bounds[i][0] for i in range(model.n_x)]
-    x_max = [model.bounds[i][1] for i in range(model.n_x)]
-    # Solve the optimization problem
-    solvers.options["show_progress"] = False  # Suppress solver output
-    solution = solvers.lp(
-        c, A, b, A=A, b=b, lb=x_min, ub=x_max, solver="glpk", kktsolver="ldl"
-    )
-
-    # Extract the optimal solution
-    x_res = np.array(solution["x"]).flatten()
-
-    result = OptimizeResult(
-        fun=solution["primal objective"],
-        success=(solution["status"] == "optimal"),
-        message=solution["status"],
-        x=x_res,
-        runtime=perf_counter() - tic,
-    )
-    return result

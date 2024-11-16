@@ -7,7 +7,7 @@ import distopf as opf
 from pathlib import Path
 
 
-'''
+"""
 (
         self,
         output_name,
@@ -37,10 +37,10 @@ from pathlib import Path
         starttime="'2001-08-01 12:00:00'",
         stoptime="'2001-08-01 12:00:00'",
     ):
-'''
+"""
 
-if __name__ == '__main__':
-    case_path = opf.CASES_DIR/"csv"/"ieee123_30der"
+if __name__ == "__main__":
+    case_path = opf.CASES_DIR / "csv" / "ieee123_30der"
     case_path.exists()
     csv2glm = Csv2glm(
         output_name="system.glm",
@@ -52,7 +52,6 @@ if __name__ == '__main__':
         tz="PST+8PDT",
         starttime="'2001-08-01 12:00:00'",
         stoptime="'2001-08-01 12:00:010'",
-
     )
     results = csv2glm.glm.run(Path.cwd())
     print(results)

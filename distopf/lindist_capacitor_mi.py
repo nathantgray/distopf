@@ -5,10 +5,10 @@ import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
 from scipy.sparse import csr_matrix
-from distopf.lindist_base_modular import LinDistModelModular, get
+from distopf.lindist import LinDistModel, get
 
 
-class LinDistModelCapMI(LinDistModelModular):
+class LinDistModelCapMI(LinDistModel):
     """
     LinDistFlow Model with support for capacitor bank control.
 

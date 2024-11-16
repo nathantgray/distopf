@@ -5,14 +5,13 @@ from collections.abc import Callable, Collection
 from time import perf_counter
 
 import cvxpy as cp
-import numpy as np
 from scipy.optimize import OptimizeResult, linprog
 from scipy.sparse import csr_array
 
 
 import pandas as pd
 from numpy import sqrt
-from distopf.lindist_base_modular import get
+from distopf.lindist import get
 from scipy.optimize import OptimizeResult
 
 
