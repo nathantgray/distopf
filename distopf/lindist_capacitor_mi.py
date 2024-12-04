@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, vstack
 from distopf.lindist import LinDistModel, get
 
 
@@ -109,12 +109,12 @@ class LinDistModelCapMI(LinDistModel):
                 ineq3 += 4
                 ineq4 += 4
 
-        return a_ineq, b_ineq
+        return csr_matrix(a_ineq), b_ineq
 
     def create_inequality_constraints(self):
         a_cap, b_cap = self.create_capacitor_constraints()
         a_inv, b_inv = self.create_octagon_constraints()
-        a_ub = np.r_[a_cap, a_inv]
+        a_ub = vstack([a_cap, a_inv])
         b_ub = np.r_[b_cap, b_inv]
         return a_ub, b_ub
 

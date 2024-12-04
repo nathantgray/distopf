@@ -189,7 +189,10 @@ class LinDistModel:
         # ~~~~~~~~~~~~~~~~~~~~ initialize Aeq and beq ~~~~~~~~~~~~~~~~~~~~
         self.a_eq, self.b_eq = self.create_model()
         self.a_ub, self.b_ub = None, None
-        self.bounds = self.init_bounds(self.bus, self.gen)
+        self.bounds_tuple = self.init_bounds(self.bus, self.gen)
+        self.x_min = [bound[0] for bound in self.bounds_tuple]
+        self.x_max = [bound[1] for bound in self.bounds_tuple]
+        self.bounds = np.c_[self.x_min, self.x_max]
 
     @staticmethod
     def _init_rx(branch):

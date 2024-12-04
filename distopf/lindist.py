@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
-from scipy.sparse import csr_array
+from scipy.sparse import csr_array, vstack
 import distopf as opf
 
 
@@ -214,10 +214,12 @@ class LinDistModel:
         self.qg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
         # ~~~~~~~~~~~~~~~~~~~~ initialize Aeq and beq ~~~~~~~~~~~~~~~~~~~~
-        self.a_eq, self.b_eq = self.create_model()
+
+        self._a_eq, self._b_eq = None, None
         self._a_ub, self._b_ub = None, None
         self._bounds = None
         self._bounds_tuple = None
+
 
     @staticmethod
     def _init_rx(branch):
@@ -577,6 +579,7 @@ class LinDistModel:
             + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
             + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
         )
+        n_rows_ineq = max(n_rows_ineq, 1)
         a_ineq = zeros((n_rows_ineq, self.n_x))
         b_ineq = zeros(n_rows_ineq)
         ineq1 = 0
@@ -634,6 +637,7 @@ class LinDistModel:
             + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
             + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
         )
+        n_rows_ineq = max(n_rows_ineq, 1)
         a_ineq = zeros((n_rows_ineq, self.n_x))
         b_ineq = zeros(n_rows_ineq)
         ineq1 = 0
@@ -762,14 +766,14 @@ class LinDistModel:
                 if not self.phase_exists(a, j):
                     continue
                 if bus_data is not None:
-                    self.a_eq, self.b_eq = self.add_swing_voltage_model(self.a_eq, self.b_eq, j, a)
-                    self.a_eq, self.b_eq = self.add_load_model(self.a_eq, self.b_eq, j, a)
+                    self._a_eq, self._b_eq = self.add_swing_voltage_model(self.a_eq, self.b_eq, j, a)
+                    self._a_eq, self._b_eq = self.add_load_model(self.a_eq, self.b_eq, j, a)
                 if gen_data is not None:
-                    self.a_eq, self.b_eq = self.add_generator_model(self.a_eq, self.b_eq, j, a)
+                    self._a_eq, self._b_eq = self.add_generator_model(self.a_eq, self.b_eq, j, a)
                 if cap_data is not None:
-                    self.a_eq, self.b_eq = self.add_capacitor_model(self.a_eq, self.b_eq, j, a)
+                    self._a_eq, self._b_eq = self.add_capacitor_model(self.a_eq, self.b_eq, j, a)
                 if reg_data is not None:
-                    self.a_eq, self.b_eq = self.add_regulator_model(self.a_eq, self.b_eq, j, a)
+                    self._a_eq, self._b_eq = self.add_regulator_model(self.a_eq, self.b_eq, j, a)
 
 
 
@@ -794,17 +798,17 @@ class LinDistModel:
     def reg_data(self):
         return self.reg
 
-    # @property
-    # def a_eq(self):
-    #     if self._a_eq is None:
-    #         self._a_eq, self._b_eq = self.create_model()
-    #     return self._a_eq
-    #
-    # @property
-    # def b_eq(self):
-    #     if self._b_eq is None:
-    #         self._a_eq, self._b_eq = self.create_model()
-    #     return self._b_eq
+    @property
+    def a_eq(self):
+        if self._a_eq is None:
+            self._a_eq, self._b_eq = self.create_model()
+        return self._a_eq
+
+    @property
+    def b_eq(self):
+        if self._b_eq is None:
+            self._a_eq, self._b_eq = self.create_model()
+        return self._b_eq
 
     @property
     def a_ub(self):

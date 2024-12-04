@@ -7,6 +7,7 @@ import plotly.express as px
 from distopf import plot_network, compare_flows, compare_voltages
 from distopf import opf_solver
 from distopf.multiperiod.lindist_base_modular_multi import LinDistModelModular as LinDistMulti
+from distopf.multiperiod.lindist_multi_fast import LinDistModelMultiFast
 from distopf import LinDistModel
 import distopf as opf
 from distopf import CASES_DIR
@@ -51,7 +52,7 @@ class TestMulti(unittest.TestCase):
             bus_data = pd.read_csv(base_path / "bus_data.csv")
             gen_data = pd.read_csv(base_path / "gen_data.csv")
             reg_data = pd.read_csv(base_path / "reg_data.csv")
-            # cap_data = pd.read_csv(base_path / "cap_data.csv")
+            cap_data = pd.read_csv(base_path / "cap_data.csv")
             # battery_data = pd.read_csv(base_path / "battery_data.csv")
             pv_loadshape = pd.read_csv(base_path / "pv_loadshape.csv")
             default_loadshape = pd.read_csv(base_path / "default_loadshape.csv")
@@ -60,12 +61,12 @@ class TestMulti(unittest.TestCase):
             bus_data.v_a = 1.0
             bus_data.v_b = 1.0
             bus_data.v_c = 1.0
-            m1 = LinDistMulti(
+            m1 = LinDistModelMultiFast(
                 branch_data=branch_data,
                 bus_data=bus_data,
                 gen_data=gen_data,
                 reg_data=reg_data,
-                # cap_data=cap_data,
+                cap_data=cap_data,
                 loadshape_data=default_loadshape,
                 pv_loadshape_data=pv_loadshape,
                 # bat_data=battery_data,
@@ -87,6 +88,7 @@ class TestMulti(unittest.TestCase):
                 bus_data=bus_data,
                 gen_data=gen_data,
                 reg_data=reg_data,
+                cap_data=cap_data
             )
             result1 = opf.multiperiod.opf_solver_multi.cvxpy_solve(m1, opf.multiperiod.cp_obj_loss, solver="CLARABEL")
             v1 = m1.get_voltages(result1.x)

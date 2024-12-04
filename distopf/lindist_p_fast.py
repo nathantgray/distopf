@@ -127,7 +127,7 @@ def _handle_bus_input(bus_data: pd.DataFrame) -> pd.DataFrame:
     return bus
 
 
-class LinDistModelFast:
+class LinDistModelPFast:
     """
     LinDistFlow Model base class.
 
@@ -209,13 +209,12 @@ class LinDistModelFast:
         self.x_maps, self.n_x = self._variable_tables(self.branch)
         self.v_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
         self.pg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
-        self.qg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
         # ~~~~~~~~~~~~~~~~~~~~ initialize Aeq and beq ~~~~~~~~~~~~~~~~~~~~
         self.a_eq, self.b_eq = self.create_model()
         self.a_ub, self.b_ub = self.create_inequality_constraints()
-        self.bounds = self.init_bounds()
-        self.bounds_tuple = list(map(tuple, self.bounds))
+        self._bounds = self.init_bounds()
+        self.bounds = list(map(tuple, self._bounds))
         self.x_min = self.bounds[:, 0]
         self.x_max = self.bounds[:, 1]
 
@@ -336,27 +335,11 @@ class LinDistModelFast:
         for a in "abc":
             if not self.phase_exists(a):
                 continue
-            q_max_manual = self.gen[f"q{a}_max"]
-            q_min_manual = self.gen[f"q{a}_min"]
-            s_rated = self.gen[f"s{a}_max"]
             p_out = self.gen[f"p{a}"]
-            q_max = ((s_rated**2) - (p_out**2)) ** (1 / 2)
-            q_min = -q_max
             for j in self.gen_buses[a]:
-                mode = self.gen.loc[j, f"{a}_mode"]
                 pg = self.idx("pg", j, a)
-                qg = self.idx("qg", j, a)
-                # active power bounds
                 x_lim_lower[pg] = 0
                 x_lim_upper[pg] = p_out[j]
-                # reactive power bounds
-                if mode == opf.CONSTANT_P:
-                    x_lim_lower[qg] = max(q_min[j], q_min_manual[j])
-                    x_lim_upper[qg] = min(q_max[j], q_max_manual[j])
-                if mode != opf.CONSTANT_P:
-                    # reactive power bounds
-                    x_lim_lower[qg] = max(-s_rated[j], q_min_manual[j])
-                    x_lim_upper[qg] = min(s_rated[j], q_max_manual[j])
         return x_lim_lower, x_lim_upper
 
     @cache
@@ -381,8 +364,6 @@ class LinDistModelFast:
             return self.v_map[phase].get(node_j, [])
         if var in ["pg", "p_gen"]:  # active power generation at node
             return self.pg_map[phase].get(node_j, [])
-        if var in ["qg", "q_gen"]:  # reactive power generation at node
-            return self.qg_map[phase].get(node_j, [])
         if var in ["qc", "q_cap"]:  # reactive power injection by capacitor
             return self.qc_map[phase].get(node_j, [])
         ix = self.user_added_idx(var, node_j, phase)
@@ -438,8 +419,15 @@ class LinDistModelFast:
         pjk = self.idx("pjk", j, phase)
         qjk = self.idx("qjk", j, phase)
         pg = self.idx("pg", j, phase)
-        qg = self.idx("qg", j, phase)
         qc = self.idx("q_cap", j, phase)
+        vj = self.idx("v", j, phase)
+        q_gen_nom = 0, 0
+        if self.gen is not None:
+            q_gen_nom = get(self.gen[f"q{phase}"], j, 0)
+        p_load_nom, q_load_nom = 0, 0
+        if self.bus.bus_type[j] == opf.PQ_BUS:
+            p_load_nom = self.bus[f"pl_{phase}"][j]
+            q_load_nom = self.bus[f"ql_{phase}"][j]
         # Set P equation variable coefficients in a_eq
         a_eq[pij, pij] = 1
         a_eq[pij, pjk] = -1
@@ -447,8 +435,13 @@ class LinDistModelFast:
         # Set Q equation variable coefficients in a_eq
         a_eq[qij, qij] = 1
         a_eq[qij, qjk] = -1
-        a_eq[qij, qg] = 1
         a_eq[qij, qc] = 1
+        if self.bus.bus_type[j] != opf.PQ_FREE:
+            # Set Load equation variable coefficients in a_eq
+            a_eq[pij, vj] =  -(self.bus.cvr_p[j] / 2) * p_load_nom
+            b_eq[pij] = (1 - (self.bus.cvr_p[j] / 2)) * p_load_nom
+            a_eq[qij, vj] = -(self.bus.cvr_q[j] / 2) * q_load_nom
+            b_eq[qij] = (1 - (self.bus.cvr_q[j] / 2)) * q_load_nom - q_gen_nom
         return a_eq, b_eq
 
     def add_voltage_drop_model(self, a_eq, b_eq, j, a, b, c):
@@ -482,7 +475,6 @@ class LinDistModelFast:
             a_eq[vj, qijc] = -x[ac][i, j] + sqrt(3) * r[ac][i, j]
         return a_eq, b_eq
 
-
     def add_regulator_model(self, a_eq, b_eq, j, a):
         i = self.idx("bi", j, a)[0]  # get the upstream node, i, on branch from i to j
         vi = self.idx("v", i, a)
@@ -506,37 +498,9 @@ class LinDistModelFast:
         return a_eq, b_eq
 
     def add_generator_model(self, a_eq, b_eq, j, phase):
-        a = phase
-        p_gen_nom, q_gen_nom = 0, 0
-        if self.gen is not None:
-            p_gen_nom = get(self.gen[f"p{a}"], j, 0)
-            q_gen_nom = get(self.gen[f"q{a}"], j, 0)
-        # equation indexes
-        pg = self.idx("pg", j, a)
-        qg = self.idx("qg", j, a)
-        # Set Generator equation variable coefficients in a_eq
-        if get(self.gen[f"{a}_mode"], j, 0) in [opf.CONSTANT_PQ, opf.CONSTANT_P]:
-            a_eq[pg, pg] = 1
-            b_eq[pg] = p_gen_nom
-        if get(self.gen[f"{a}_mode"], j, 0) in [opf.CONSTANT_PQ, opf.CONSTANT_Q]:
-            a_eq[qg, qg] = 1
-            b_eq[qg] = q_gen_nom
         return a_eq, b_eq
 
     def add_load_model(self, a_eq, b_eq, j, phase):
-        pij = self.idx("pij", j, phase)
-        qij = self.idx("qij", j, phase)
-        vj = self.idx("v", j, phase)
-        p_load_nom, q_load_nom = 0, 0
-        if self.bus.bus_type[j] == opf.PQ_BUS:
-            p_load_nom = self.bus[f"pl_{phase}"][j]
-            q_load_nom = self.bus[f"ql_{phase}"][j]
-        if self.bus.bus_type[j] != opf.PQ_FREE:
-            # Set Load equation variable coefficients in a_eq
-            a_eq[pij, vj] =  -(self.bus.cvr_p[j] / 2) * p_load_nom
-            b_eq[pij] = (1 - (self.bus.cvr_p[j] / 2)) * p_load_nom
-            a_eq[qij, vj] = -(self.bus.cvr_q[j] / 2) * q_load_nom
-            b_eq[qij] = (1 - (self.bus.cvr_q[j] / 2)) * q_load_nom
         return a_eq, b_eq
 
     def add_capacitor_model(self, a_eq, b_eq, j, phase):
@@ -551,117 +515,7 @@ class LinDistModelFast:
         return a_eq, b_eq
 
     def create_inequality_constraints(self):
-        a_ub, b_ub = self.create_octagon_constraints()
-        return csr_array(a_ub), b_ub
-
-    def create_hexagon_constraints(self):
-        """
-        Create inequality constraints for the optimization problem.
-        """
-
-        # ########## Aineq and Bineq Formation ###########
-        n_inequalities = 6
-        n_rows_ineq = n_inequalities * (
-            len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
-            + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
-            + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
-        )
-        a_ineq = zeros((n_rows_ineq, self.n_x))
-        b_ineq = zeros(n_rows_ineq)
-        ineq1 = 0
-        ineq2 = 1
-        ineq3 = 2
-        ineq4 = 3
-        ineq5 = 4
-        ineq6 = 5
-
-        for j in self.gen.index:
-            for a in "abc":
-                if not self.phase_exists(a, j):
-                    continue
-                if self.gen.loc[j, f"{a}_mode"] != "CONTROL_PQ":
-                    continue
-                pg = self.idx("pg", j, a)
-                qg = self.idx("qg", j, a)
-                s_rated = self.gen.at[j, f"s{a}_max"]
-                # equation indexes
-                a_ineq[ineq1, pg] = -sqrt(3)
-                a_ineq[ineq1, qg] = -1
-                b_ineq[ineq1] = sqrt(3) * s_rated
-                a_ineq[ineq2, pg] = sqrt(3)
-                a_ineq[ineq2, qg] = 1
-                b_ineq[ineq2] = sqrt(3) * s_rated
-                a_ineq[ineq3, qg] = -1
-                b_ineq[ineq3] = sqrt(3) / 2 * s_rated
-                a_ineq[ineq4, qg] = 1
-                b_ineq[ineq4] = sqrt(3) / 2 * s_rated
-                a_ineq[ineq5, pg] = sqrt(3)
-                a_ineq[ineq5, qg] = -1
-                b_ineq[ineq5] = sqrt(3) * s_rated
-                a_ineq[ineq6, pg] = -sqrt(3)
-                a_ineq[ineq6, qg] = 1
-                b_ineq[ineq6] = -sqrt(3) * s_rated
-                ineq1 += 6
-                ineq2 += 6
-                ineq3 += 6
-                ineq4 += 6
-                ineq5 += 6
-                ineq6 += 6
-
-        return csr_array(a_ineq), b_ineq
-
-    def create_octagon_constraints(self):
-        """
-        Create inequality constraints for the optimization problem.
-        """
-
-        # ########## Aineq and Bineq Formation ###########
-        n_inequalities = 5
-
-        n_rows_ineq = n_inequalities * (
-            len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
-            + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
-            + len(np.where(self.gen.a_mode == "CONTROL_PQ")[0])
-        )
-        a_ineq = zeros((n_rows_ineq, self.n_x))
-        b_ineq = zeros(n_rows_ineq)
-        ineq1 = 0
-        ineq2 = 1
-        ineq3 = 2
-        ineq4 = 3
-        ineq5 = 4
-
-        for j in self.gen.index:
-            for a in "abc":
-                if not self.phase_exists(a, j):
-                    continue
-                if self.gen.loc[j, f"{a}_mode"] != "CONTROL_PQ":
-                    continue
-                pg = self.idx("pg", j, a)
-                qg = self.idx("qg", j, a)
-                s_rated = self.gen.at[j, f"s{a}_max"]
-                # equation indexes
-                a_ineq[ineq1, pg] = sqrt(2)
-                a_ineq[ineq1, qg] = -2 + sqrt(2)
-                b_ineq[ineq1] = sqrt(2) * s_rated
-                a_ineq[ineq2, pg] = sqrt(2)
-                a_ineq[ineq2, qg] = 2 - sqrt(2)
-                b_ineq[ineq2] = sqrt(2) * s_rated
-                a_ineq[ineq3, pg] = -1 + sqrt(2)
-                a_ineq[ineq3, qg] = 1
-                b_ineq[ineq3] = s_rated
-                a_ineq[ineq4, pg] = -1 + sqrt(2)
-                a_ineq[ineq4, qg] = -1
-                b_ineq[ineq4] = s_rated
-                a_ineq[ineq5, pg] = -1
-                b_ineq[ineq5] = 0
-                ineq1 += n_inequalities
-                ineq2 += n_inequalities
-                ineq3 += n_inequalities
-                ineq4 += n_inequalities
-                ineq5 += n_inequalities
-
-        return csr_array(a_ineq), b_ineq
+        return None, None
 
     def parse_results(self, x, variable_name: str):
         values = pd.DataFrame(columns=["name", "a", "b", "c"])
@@ -691,9 +545,6 @@ class LinDistModelFast:
         v_df = self.get_device_variables(x, self.v_map)
         v_df.loc[:, ["a", "b", "c"]] = v_df.loc[:, ["a", "b", "c"]] ** 0.5
         return v_df
-
-    def get_q_gens(self, x):
-        return self.get_device_variables(x, self.qg_map)
 
     def get_p_gens(self, x):
         return self.get_device_variables(x, self.pg_map)
