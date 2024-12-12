@@ -797,7 +797,7 @@ class LinDistModelModular:
         charge_j = self.idx("charge", j, phase, t=t)
         nc = self.bat[f"nc_{phase}"].get(j, 0)
         nd = self.bat[f"nd_{phase}"].get(j, float("inf"))
-        soc0 = self.bat[f"bmin_{phase}"].get(j, 0)
+        soc0 = self.bat[f"b0_{phase}"].get(j, 0)
         # soc0 = self.bat[f"energy_start_{phase}"].get(j, 0)
         dt = 1  # 1 hour time step assumed, currently soc is in units of p_base*1hour (default: 1MWh)
         a_eq[soc_j, discharge_j] = 1 / nd * dt
