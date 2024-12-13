@@ -129,6 +129,9 @@ def _handle_bat_input(bat_data: pd.DataFrame) -> pd.DataFrame:
                 "bmax_a",
                 "bmax_b",
                 "bmax_c",
+                "b0_a",
+                "b0_b",
+                "b0_c",
                 "phases",
             ]
         )
@@ -702,11 +705,11 @@ class LinDistModel:
                         i_root = list(set(x_maps["a"].bi) - set(x_maps["a"].bj))[0]
                         i_v_swing = (
                             x_maps[t][ph]
-                            .loc[x_maps[t][ph].loc[:, "bi"] == self.SWING, "vi"]
+                            .loc[x_maps[t][ph].loc[:, "bi"] == self.swing_bus, "vi"]
                             .to_numpy()[0]
                         )
-                        x_lim_lower[i_v_swing] = bus.loc[self.SWING, "v_min"] ** 2
-                        x_lim_upper[i_v_swing] = bus.loc[self.SWING, "v_max"] ** 2
+                        x_lim_lower[i_v_swing] = bus.loc[self.swing_bus, "v_min"] ** 2
+                        x_lim_upper[i_v_swing] = bus.loc[self.swing_bus, "v_max"] ** 2
                         x_lim_lower[x_maps[t][ph].loc[:, "vj"]] = (
                             bus.loc[x_maps[t][ph].loc[:, "bj"], "v_min"] ** 2
                         )
@@ -883,7 +886,7 @@ class LinDistModel:
 
                         # V equation
                         i = self.idx("bi", j, a, t)[0]
-                        if i == self.SWING:  # Swing bus
+                        if i == self.swing_bus:  # Swing bus
                             a_eq[row("vi", a), col("vi", a)] = 1
                             b_eq[row("vi", a)] = (
                                 bus.loc[bus.bus_type == "SWING", f"v_{a}"][0] ** 2
@@ -1152,7 +1155,7 @@ class LinDistModel:
                     if not self.phase_exists(ph):
                         v_df_t.loc[:, ph] = 0.0
                         continue
-                    v_df_t.loc[self.SWING + 1, ph] = np.sqrt(
+                    v_df_t.loc[self.swing_bus + 1, ph] = np.sqrt(
                         x[self.x_maps[t][ph].vi[0]].astype(np.float64)
                     )
                     v_df_t.loc[self.x_maps[t][ph].bj.values + 1, ph] = np.sqrt(

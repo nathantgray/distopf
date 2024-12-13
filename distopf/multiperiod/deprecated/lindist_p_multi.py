@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
 from scipy.sparse import csr_matrix
-from distopf.multiperiod.lindist_base_multi import LinDistModel, get
+from distopf.multiperiod.deprecated.lindist_base_multi import LinDistModel, get
 
 # bus_type options
 SWING_FREE = "IN"

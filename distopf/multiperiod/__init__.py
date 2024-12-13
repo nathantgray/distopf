@@ -1,6 +1,5 @@
-from distopf.multiperiod.lindist_base_multi import LinDistModel
-from distopf.multiperiod.lindist_q_multi import LinDistModelQ
-from distopf.multiperiod.lindist_p_multi import LinDistModelP
+from distopf.multiperiod.lindist_base_modular_multi import LinDistModelMulti
+from distopf.multiperiod.lindist_multi_fast import LinDistModelMultiFast
 from distopf.multiperiod.opf_solver_multi import (
     cvxpy_solve,
     lp_solve,

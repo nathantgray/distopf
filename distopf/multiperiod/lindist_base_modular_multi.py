@@ -129,6 +129,9 @@ def _handle_bat_input(bat_data: pd.DataFrame) -> pd.DataFrame:
                 "bmax_a",
                 "bmax_b",
                 "bmax_c",
+                "b0_a",
+                "b0_b",
+                "b0_c",
                 "phases",
             ]
         )
@@ -185,7 +188,7 @@ def _handle_bus_input(bus_data: pd.DataFrame) -> pd.DataFrame:
     return bus
 
 
-class LinDistModelModular:
+class LinDistModelMulti:
     """
     LinDistFlow Model base class.
 
@@ -238,7 +241,7 @@ class LinDistModelModular:
         self.start_step = start_step
         self.n_steps = n_steps
         self.delta_t = delta_t
-        self.SWING = self.bus.loc[self.bus.bus_type == "SWING", "id"].to_numpy()[0] - 1
+        self.swing_bus = self.bus.loc[self.bus.bus_type == "SWING", "id"].to_numpy()[0] - 1
 
         # ~~~~~~~~~~~~~~~~~~~~ prepare data ~~~~~~~~~~~~~~~~~~~~
         self.nb = len(self.bus.id)
@@ -248,6 +251,12 @@ class LinDistModelModular:
             "b": self.bus.loc[self.bus.phases.str.contains("b")].index.to_numpy(),
             "c": self.bus.loc[self.bus.phases.str.contains("c")].index.to_numpy(),
         }
+        self.load_buses = {
+            "a": self.all_buses["a"][np.where(self.all_buses["a"] != self.swing_bus)],
+            "b": self.all_buses["b"][np.where(self.all_buses["b"] != self.swing_bus)],
+            "c": self.all_buses["c"][np.where(self.all_buses["c"] != self.swing_bus)],
+        }
+
         self.gen_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
         if self.gen.shape[0] > 0:
             self.gen_buses = {
@@ -325,10 +334,10 @@ class LinDistModelModular:
                 self.n_x, self.all_buses
             )
             self.pl_map[t], self.n_x = self._add_device_variables(
-                self.n_x, self.all_buses
+                self.n_x, self.load_buses
             )
             self.ql_map[t], self.n_x = self._add_device_variables(
-                self.n_x, self.all_buses
+                self.n_x, self.load_buses
             )
             self.pg_map[t], self.n_x = self._add_device_variables(
                 self.n_x, self.gen_buses
@@ -503,7 +512,7 @@ class LinDistModelModular:
     def add_generator_limits(self, x_lim_lower, x_lim_upper, t=0):
         if t < self.start_step:
             t = self.start_step
-        gen_mult = self.pv_loadshape.PV[t]
+        gen_mult = self.pv_loadshape.PV.get(t, 1)
         for a in "abc":
             if not self.phase_exists(a):
                 continue
@@ -736,7 +745,7 @@ class LinDistModelModular:
             t = self.start_step
         a = phase
         p_gen_nom, q_gen_nom = 0, 0
-        pv_mult = self.pv_loadshape.PV[t]
+        pv_mult = self.pv_loadshape.PV.get(t, 1)
         if self.gen is not None:
             p_gen_nom = get(self.gen[f"p{a}"], j, 0)
             q_gen_nom = get(self.gen[f"q{a}"], j, 0)
@@ -757,7 +766,7 @@ class LinDistModelModular:
             t = self.start_step
         a = phase
         p_load_nom, q_load_nom = 0, 0
-        load_mult = self.loadshape.M[t]
+        load_mult = self.loadshape.M.get(t, 1)
         if self.bus.bus_type[j] == opf.PQ_BUS:
             p_load_nom = self.bus[f"pl_{a}"][j] * load_mult
             q_load_nom = self.bus[f"ql_{a}"][j] * load_mult
@@ -790,13 +799,15 @@ class LinDistModelModular:
         return a_eq, b_eq
 
     def add_battery_model(self, a_eq, b_eq, j, phase, t=0):
+        if j not in self.bat.index:
+            return a_eq, b_eq
         if t < self.start_step:
             t = self.start_step
         soc_j = self.idx("soc", j, phase, t=t)
         discharge_j = self.idx("discharge", j, phase, t=t)
         charge_j = self.idx("charge", j, phase, t=t)
-        nc = self.bat[f"nc_{phase}"].get(j, 0)
-        nd = self.bat[f"nd_{phase}"].get(j, float("inf"))
+        nc = self.bat[f"nc_{phase}"].get(j, 1)
+        nd = self.bat[f"nd_{phase}"].get(j, 1)
         soc0 = self.bat[f"b0_{phase}"].get(j, 0)
         # soc0 = self.bat[f"energy_start_{phase}"].get(j, 0)
         dt = 1  # 1 hour time step assumed, currently soc is in units of p_base*1hour (default: 1MWh)

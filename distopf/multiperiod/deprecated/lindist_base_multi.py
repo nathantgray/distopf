@@ -129,6 +129,9 @@ def _handle_bat_input(bat_data: pd.DataFrame) -> pd.DataFrame:
                 "bmax_a",
                 "bmax_b",
                 "bmax_c",
+                "b0_a",
+                "b0_b",
+                "b0_c",
                 "phases",
             ]
         )

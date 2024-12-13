@@ -5,8 +5,10 @@ import cvxpy as cp
 import numpy as np
 from scipy.optimize import OptimizeResult, linprog
 from scipy.sparse import csr_array
-from distopf.multiperiod import LinDistModelQ, LinDistModelP, LinDistModel
-from distopf.multiperiod.lindist_base_modular_multi import LinDistModelModular
+from distopf.multiperiod.deprecated.lindist_p_multi import LinDistModelP
+from distopf.multiperiod.deprecated.lindist_q_multi import LinDistModelQ
+from distopf.multiperiod.deprecated.lindist_base_multi import LinDistModel
+from distopf.multiperiod.lindist_base_modular_multi import LinDistModelMulti
 
 
 # cost = pd.read_csv("cost_data.csv")
@@ -30,7 +32,7 @@ def gradient_curtail(model):
 
 # ~~~ Quadratic objective with linear constraints for use with solve_quad()~~~
 
-def cp_obj_loss(model: LinDistModelModular, xk: cp.Variable, **kwargs) -> cp.Expression:
+def cp_obj_loss(model: LinDistModelMulti, xk: cp.Variable, **kwargs) -> cp.Expression:
     """
 
     Parameters
@@ -69,7 +71,7 @@ def cp_obj_loss(model: LinDistModelModular, xk: cp.Variable, **kwargs) -> cp.Exp
         return np.vdot(r, xk[ix]**2)
 
 
-def cp_battery_efficiency(model: LinDistModelModular, xk: cp.Variable, **kwargs) -> cp.Expression:
+def cp_battery_efficiency(model: LinDistModelMulti, xk: cp.Variable, **kwargs) -> cp.Expression:
     """
 
     Parameters
@@ -107,7 +109,7 @@ def cp_battery_efficiency(model: LinDistModelModular, xk: cp.Variable, **kwargs)
     else:
         return 1e-3 * np.vdot(vec1, xk[ix])
 
-def cp_obj_loss_batt(model: LinDistModelModular, xk: cp.Variable, **kwargs) -> cp.Expression:
+def cp_obj_loss_batt(model: LinDistModelMulti, xk: cp.Variable, **kwargs) -> cp.Expression:
     """
 
     Parameters
@@ -190,7 +192,7 @@ def peak_shave(model, xk):
     for t in range(LinDistModelQ.n):
         ph = 0
         for a in "abc":
-            ph += xk[model.idx("pij", model.SWING + 1, a, t)[0]]
+            ph += xk[model.idx("pij", model.swing_bus + 1, a, t)[0]]
         subs.append(ph)
         for j in range(1, model.nb):
             for a in "abc":
@@ -223,12 +225,12 @@ def cost_min(model, xk):
         if t in peak_h:
             peak = 0
             for a in "abc":
-                peak += xk[model.idx("pij", model.SWING + 1, a, t)[0]]
+                peak += xk[model.idx("pij", model.swing_bus + 1, a, t)[0]]
             f += peak * peak_price * 10
         else:
             off_peak = 0
             for a in "abc":
-                off_peak += xk[model.idx("pij", model.SWING + 1, a, t)[0]]
+                off_peak += xk[model.idx("pij", model.swing_bus + 1, a, t)[0]]
             f += off_peak * off_peak_price * 10
         for j in range(1, model.nb):
             for a in "abc":
@@ -304,7 +306,7 @@ def cp_obj_target_q_total(model, xk, **kwargs):
 
 
 def cp_obj_curtail(
-    model: LinDistModelModular, xk: cp.Variable, **kwargs
+    model: LinDistModelMulti, xk: cp.Variable, **kwargs
 ) -> cp.Expression:
     """
     Objective function to minimize curtailment of DERs.
@@ -337,7 +339,7 @@ def cp_obj_curtail(
     return cp.sum((model.x_max[all_pg_idx] - xk[all_pg_idx]) ** 2)
 
 def cp_obj_curtail_lp(
-    model: LinDistModelModular, xk: cp.Variable, **kwargs
+    model: LinDistModelMulti, xk: cp.Variable, **kwargs
 ) -> cp.Expression:
     """
     Objective function to minimize curtailment of DERs.
@@ -382,7 +384,7 @@ def cp_obj_none(*args, **kwargs) -> cp.Constant:
 
 
 def cvxpy_solve(
-    model: LinDistModel,
+    model: LinDistModelMulti,
     obj_func: Callable,
     **kwargs,
 ) -> OptimizeResult:

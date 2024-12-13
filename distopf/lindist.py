@@ -164,10 +164,16 @@ class LinDistModel:
         # ~~~~~~~~~~~~~~~~~~~~ prepare data ~~~~~~~~~~~~~~~~~~~~
         self.nb = len(self.bus.id)
         self.r, self.x = self._init_rx(self.branch)
+        self.swing_bus = self.bus.loc[self.bus.bus_type == "SWING"].index[0]
         self.all_buses = {
             "a": self.bus.loc[self.bus.phases.str.contains("a")].index.to_numpy(),
             "b": self.bus.loc[self.bus.phases.str.contains("b")].index.to_numpy(),
             "c": self.bus.loc[self.bus.phases.str.contains("c")].index.to_numpy(),
+        }
+        self.load_buses = {
+            "a": self.all_buses["a"][np.where(self.all_buses["a"] != self.swing_bus)],
+            "b": self.all_buses["b"][np.where(self.all_buses["b"] != self.swing_bus)],
+            "c": self.all_buses["c"][np.where(self.all_buses["c"] != self.swing_bus)],
         }
         self.gen_buses = dict(a=np.array([]), b=np.array([]), c=np.array([]))
         if self.gen.shape[0] > 0:
@@ -208,8 +214,8 @@ class LinDistModel:
         # ~~ initialize index pointers ~~
         self.x_maps, self.n_x = self._variable_tables(self.branch)
         self.v_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
-        self.pl_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
-        self.ql_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
+        self.pl_map, self.n_x = self._add_device_variables(self.n_x, self.load_buses)
+        self.ql_map, self.n_x = self._add_device_variables(self.n_x, self.load_buses)
         self.pg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
