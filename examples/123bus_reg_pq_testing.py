@@ -42,9 +42,9 @@ if __name__ == "__main__":
     #         ),
     #     ]
     # )
-    case.gen_data.a_mode = "CONTROL_PQ"
-    case.gen_data.b_mode = "CONTROL_PQ"
-    case.gen_data.c_mode = "CONTROL_PQ"
+    case.gen_data["a_mode"] = "CONTROL_PQ"
+    case.gen_data["b_mode"] = "CONTROL_PQ"
+    case.gen_data["c_mode"] = "CONTROL_PQ"
     case.gen_data.sa_max = case.gen_data.sa_max / 1.2
     case.gen_data.sb_max = case.gen_data.sb_max / 1.2
     case.gen_data.sc_max = case.gen_data.sc_max / 1.2

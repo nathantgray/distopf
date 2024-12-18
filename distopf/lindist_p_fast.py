@@ -215,8 +215,8 @@ class LinDistModelPFast:
         self.a_ub, self.b_ub = self.create_inequality_constraints()
         self._bounds = self.init_bounds()
         self.bounds = list(map(tuple, self._bounds))
-        self.x_min = self.bounds[:, 0]
-        self.x_max = self.bounds[:, 1]
+        self.x_min = self._bounds[:, 0]
+        self.x_max = self._bounds[:, 1]
 
     @staticmethod
     def _init_rx(branch):
@@ -438,7 +438,7 @@ class LinDistModelPFast:
         a_eq[qij, qc] = 1
         if self.bus.bus_type[j] != opf.PQ_FREE:
             # Set Load equation variable coefficients in a_eq
-            a_eq[pij, vj] =  -(self.bus.cvr_p[j] / 2) * p_load_nom
+            a_eq[pij, vj] = -(self.bus.cvr_p[j] / 2) * p_load_nom
             b_eq[pij] = (1 - (self.bus.cvr_p[j] / 2)) * p_load_nom
             a_eq[qij, vj] = -(self.bus.cvr_q[j] / 2) * q_load_nom
             b_eq[qij] = (1 - (self.bus.cvr_q[j] / 2)) * q_load_nom - q_gen_nom
@@ -554,7 +554,8 @@ class LinDistModelPFast:
 
     def get_apparent_power_flows(self, x):
         s_df = pd.DataFrame(
-            columns=["fb", "tb", "from_name", "to_name", "a", "b", "c"], index=range(2, self.nb + 1)
+            columns=["fb", "tb", "from_name", "to_name", "a", "b", "c"],
+            index=range(2, self.nb + 1),
         )
         s_df["a"] = s_df["a"].astype(complex)
         s_df["b"] = s_df["b"].astype(complex)

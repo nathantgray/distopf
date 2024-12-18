@@ -19,8 +19,16 @@ from distopf.opf_solver import (
     cp_obj_curtail,
     cp_obj_none,
 )
-from distopf.plot import plot_network, plot_voltages, plot_power_flows, plot_ders, compare_flows, compare_voltages, \
-    voltage_differences
+from distopf.plot import (
+    plot_network,
+    plot_voltages,
+    plot_power_flows,
+    plot_ders,
+    compare_flows,
+    compare_voltages,
+    voltage_differences,
+    plot_polar
+)
 from distopf.dssconverter.dssparser import DSSParser
 
 from distopf.cases import CASES_DIR

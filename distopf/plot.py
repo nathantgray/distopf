@@ -9,17 +9,6 @@ import plotly.graph_objects as go
 
 from distopf import LinDistModel
 
-# plot color codes for distribution system plots
-
-COLORCODES = {
-    # key: circuit element type
-    # values: color, linewidth
-    "transformer": ["black", 4, "solid"],
-    "switch": ["black", 4, "solid"],
-    "line": ["black", 4, "solid"],
-    "reactor": ["black", 4, "solid"],
-}
-
 
 def plot_voltages(v: pd.DataFrame = None) -> go.Figure:
     """
@@ -33,7 +22,9 @@ def plot_voltages(v: pd.DataFrame = None) -> go.Figure:
     fig : Plotly figure object
         Plotly figure object containing the voltage magnitudes for each bus.
     """
-    v = v.melt(ignore_index=False, id_vars=["id", "name"], var_name="phase", value_name="v")
+    v = v.melt(
+        ignore_index=False, id_vars=["id", "name"], var_name="phase", value_name="v"
+    )
     fig = px.scatter(v, x=v.name, y="v", facet_col="phase", color="phase")
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1].upper()))
     fig.for_each_xaxis(lambda a: a.update(title="Bus Name"))
@@ -52,8 +43,12 @@ def compare_voltages(v1: pd.DataFrame, v2: pd.DataFrame) -> go.Figure:
     -------
     fig : Plotly figure object
     """
-    v1 = v1.melt(ignore_index=True, var_name="phase", id_vars=["id", "name"], value_name="v1")
-    v2 = v2.melt(ignore_index=True, var_name="phase", id_vars=["id", "name"], value_name="v2")
+    v1 = v1.melt(
+        ignore_index=True, var_name="phase", id_vars=["id", "name"], value_name="v1"
+    )
+    v2 = v2.melt(
+        ignore_index=True, var_name="phase", id_vars=["id", "name"], value_name="v2"
+    )
     v = pd.merge(v1, v2, on=["name", "phase"])
     fig = px.line(v, x="name", facet_col="phase", y=["v1", "v2"], markers=True)
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1].upper()))
@@ -75,11 +70,22 @@ def voltage_differences(v1: pd.DataFrame, v2: pd.DataFrame) -> go.Figure:
     """
     v1["id"] = v1.index
     v2["id"] = v2.index
-    v1 = v1.melt(ignore_index=True, var_name="phase", id_vars=["id", "name"], value_name="v1")
-    v2 = v2.melt(ignore_index=True, var_name="phase", id_vars=["id", "name"], value_name="v2")
-    v = pd.merge(v1, v2, on=["id", "phase"])
+    v1 = v1.melt(
+        ignore_index=True, var_name="phase", id_vars=["id", "name"], value_name="v1"
+    )
+    v2 = v2.melt(
+        ignore_index=True, var_name="phase", id_vars=["id", "name"], value_name="v2"
+    )
+    v = pd.merge(v1, v2, on=["id", "name", "phase"])
     v["diff"] = v["v1"] - v["v2"]
-    fig = px.line(v, x="id", y="diff", facet_col="phase")
+    # fig = px.line(v, x="id", y="diff", facet_col="phase")
+    fig = px.bar(
+        v,
+        x="name",
+        y="diff",
+        color="phase",
+        barmode="group",
+    )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1].upper()))
     fig.for_each_xaxis(lambda a: a.update(title="Bus Name"))
     return fig
@@ -98,7 +104,10 @@ def plot_power_flows(s: pd.DataFrame) -> go.Figure:
     """
 
     s = s.melt(
-        ignore_index=True, id_vars=["fb", "tb", "from_name", "to_name"], var_name="phase", value_name="s"
+        ignore_index=True,
+        id_vars=["fb", "tb", "from_name", "to_name"],
+        var_name="phase",
+        value_name="s",
     )
     s["p"] = s.s.apply(lambda x: x.real)
     s["q"] = s.s.apply(lambda x: x.imag)
@@ -111,12 +120,12 @@ def plot_power_flows(s: pd.DataFrame) -> go.Figure:
     )
     fig = px.bar(
         s,
-        x="tb",
+        x="to_name",
         y="power",
         facet_col="phase",
         facet_row="part",
         color="phase",
-        labels={"tb": "To-Bus Name"},
+        labels={"to_name": "To-Bus Name"},
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1].upper()))
     fig.update_layout(
@@ -139,38 +148,46 @@ def compare_flows(s1: pd.DataFrame, s2: pd.DataFrame) -> go.Figure:
     fig : Plotly figure object
     """
     s1 = s1.melt(
-        ignore_index=True, id_vars=["fb", "tb", "from_name", "to_name"], var_name="phase", value_name="s"
+        ignore_index=True,
+        id_vars=["fb", "tb", "from_name", "to_name"],
+        var_name="phase",
+        value_name="s",
     )
     s1["p"] = s1.s.apply(np.real)
     s1["q"] = s1.s.apply(np.imag)
     del s1["s"]
     s1 = s1.melt(
         ignore_index=True,
-        id_vars=["fb", "tb", "phase"],
+        id_vars=["fb", "tb", "from_name", "to_name", "phase"],
         var_name="part",
         value_name="s1",
     )
     s2 = s2.melt(
-        ignore_index=True, id_vars=["fb", "tb", "from_name", "to_name"], var_name="phase", value_name="s"
+        ignore_index=True,
+        id_vars=["fb", "tb", "from_name", "to_name"],
+        var_name="phase",
+        value_name="s",
     )
     s2["p"] = s2.s.apply(np.real)
     s2["q"] = s2.s.apply(np.imag)
     del s2["s"]
     s2 = s2.melt(
         ignore_index=True,
-        id_vars=["fb", "tb", "phase"],
+        id_vars=["fb", "tb", "from_name", "to_name", "phase"],
         var_name="part",
         value_name="s2",
     )
-    s = pd.merge(s1, s2, on=["fb", "tb", "phase", "part"], how="outer")
+    s = pd.merge(
+        s1, s2, on=["fb", "tb", "from_name", "to_name", "phase", "part"], how="outer"
+    )
     fig = px.bar(
         s,
-        x="tb",
+        x="to_name",
         y=["s1", "s2"],
         facet_col="phase",
         facet_row="part",
         barmode="group",
-        labels={"tb": "To-Bus Name"},
+        labels={"to_name": "To-Bus Name"},
     )
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1].upper()))
     fig.update_layout(
@@ -195,7 +212,7 @@ def plot_ders(ders: pd.DataFrame) -> go.Figure:
         ignore_index=False,
         var_name="phase",
         value_name="Generated Power (p.u.)",
-        id_vars="name",
+        id_vars=["id", "name"],
     )
     fig = px.bar(
         dec_var,
@@ -215,14 +232,14 @@ def plot_polar(p: pd.DataFrame, q: pd.DataFrame) -> go.Figure:
         ignore_index=False,
         var_name="phase",
         value_name="p",
-        id_vars="name",
+        id_vars=["id", "name"],
     )
 
     q = q.melt(
         ignore_index=False,
         var_name="phase",
         value_name="q",
-        id_vars="name",
+        id_vars=["id", "name"],
     )
     pq = pd.merge(p, q, on=["name", "phase"], how="outer")
     pq["s"] = (pq.p.array + 1j * pq.q.array).astype(complex)
@@ -290,13 +307,19 @@ def plot_network(
     edge_min = 1
 
     bus_data = _process_bus_data(bus_data, _v, phase_list)
-    branch_data = _process_branch_data(branch_data, bus_data, _s, phase_list, edge_scale, edge_min)
+    branch_data = _process_branch_data(
+        branch_data, bus_data, _s, phase_list, edge_scale, edge_min
+    )
     gen_data = _process_gen_data(gen_data, p_gen, q_gen)
 
     node_trace = _make_node_trace(bus_data, node_size, v_max, v_min)
-    cap_trace, gen_trace, substation_trace = _make_asset_markers(bus_data, cap_data, gen_data, node_size)
+    cap_trace, gen_trace, substation_trace = _make_asset_markers(
+        bus_data, cap_data, gen_data, node_size
+    )
     edge_traces = _make_edge_traces(branch_data, show_phases, show_reactive_power)
-    reverse_flow_markers_trace = _make_reverse_flow_marker_trace(branch_data, node_size, show_reactive_power)
+    reverse_flow_markers_trace = _make_reverse_flow_marker_trace(
+        branch_data, node_size, show_reactive_power
+    )
 
     node_trace.text = _make_hover_text(branch_data, bus_data, cap_data, gen_data)
     title = _make_title(show_phases, show_reactive_power)
@@ -328,6 +351,7 @@ def plot_network(
     )
 
     return fig
+
 
 def _process_bus_data(bus_data, _v, phase_list):
     bus_data["y"] = bus_data.latitude - bus_data.latitude.mean()
@@ -372,13 +396,19 @@ def _process_branch_data(branch_data, bus_data, _s, phase_list, edge_scale, edge
         branch_data["p_abs"] = np.abs(np.real(_s.loc[:, phase_list].sum(axis=1)))
         branch_data["q_abs"] = np.abs(np.imag(_s.loc[:, phase_list].sum(axis=1)))
         branch_data["p_norm"] = (
-            branch_data["p_abs"].to_numpy() / branch_data["p_abs"].max() * edge_scale + edge_min
+            branch_data["p_abs"].to_numpy() / branch_data["p_abs"].max() * edge_scale
+            + edge_min
         )
         branch_data["q_norm"] = (
-            branch_data["q_abs"].to_numpy() / branch_data["q_abs"].max() * edge_scale + edge_min
+            branch_data["q_abs"].to_numpy() / branch_data["q_abs"].max() * edge_scale
+            + edge_min
         )
-        branch_data["p_direction"] = np.sign(np.real(_s.loc[:, phase_list].sum(axis=1)) + 1e-6)
-        branch_data["q_direction"] = np.sign(np.imag(_s.loc[:, phase_list].sum(axis=1)) + 1e-6)
+        branch_data["p_direction"] = np.sign(
+            np.real(_s.loc[:, phase_list].sum(axis=1)) + 1e-6
+        )
+        branch_data["q_direction"] = np.sign(
+            np.imag(_s.loc[:, phase_list].sum(axis=1)) + 1e-6
+        )
     return branch_data
 
 
@@ -399,11 +429,19 @@ def _process_gen_data(gen_data, p_gen, q_gen):
 
 def _make_reverse_flow_marker_trace(branch_data, node_size, show_reactive_power):
     if show_reactive_power:
-        reverse_list_x = branch_data.loc[branch_data.q_direction < 0, "x_mid"].to_numpy()
-        reverse_list_y = branch_data.loc[branch_data.q_direction < 0, "y_mid"].to_numpy()
+        reverse_list_x = branch_data.loc[
+            branch_data.q_direction < 0, "x_mid"
+        ].to_numpy()
+        reverse_list_y = branch_data.loc[
+            branch_data.q_direction < 0, "y_mid"
+        ].to_numpy()
     else:
-        reverse_list_x = branch_data.loc[branch_data.p_direction < 0, "x_mid"].to_numpy()
-        reverse_list_y = branch_data.loc[branch_data.p_direction < 0, "y_mid"].to_numpy()
+        reverse_list_x = branch_data.loc[
+            branch_data.p_direction < 0, "x_mid"
+        ].to_numpy()
+        reverse_list_y = branch_data.loc[
+            branch_data.p_direction < 0, "y_mid"
+        ].to_numpy()
     reverse_flow_markers_trace = go.Scatter()
     if not show_reactive_power:
         reverse_flow_markers_trace = go.Scatter(
@@ -429,15 +467,15 @@ def _make_edge_traces(branch_data, show_phases, show_reactive_power):
     for _, edge in branch_data.iterrows():
         x0, x1 = edge.x0, edge.x1
         y0, y1 = edge.y0, edge.y1
-        dash = COLORCODES.get(edge["type"], ["black", 4, "solid"])[2]
+        dash = "solid"
         linewidth = edge.p_norm
         direction = edge.p_direction
         if show_reactive_power:
             linewidth = edge.q_norm
             direction = edge.q_direction
         if (
-                show_phases.lower() != "abc"
-                and show_phases.lower() not in edge.phases.lower()
+            show_phases.lower() != "abc"
+            and show_phases.lower() not in edge.phases.lower()
         ):
             dash = "dot"
 
@@ -483,8 +521,12 @@ def _make_hover_text(branch_data, bus_data, cap_data, gen_data):
                 ] += f"<br>    Q-Cap:  {q_cap[0]:.3f}  {q_cap[1]:.3f}  {q_cap[2]:.3f}"
 
         if bus_row.id in gen_data.id.to_numpy():
-            p_gen = gen_data.loc[gen_data.id == bus_row.id, ["pa", "pb", "pc"]].to_numpy()[0]
-            q_gen = gen_data.loc[gen_data.id == bus_row.id, ["qa", "qb", "qc"]].to_numpy()[0]
+            p_gen = gen_data.loc[
+                gen_data.id == bus_row.id, ["pa", "pb", "pc"]
+            ].to_numpy()[0]
+            q_gen = gen_data.loc[
+                gen_data.id == bus_row.id, ["qa", "qb", "qc"]
+            ].to_numpy()[0]
             text[i] += f"<br>    P-Gen:  {p_gen[0]:.3f}  {p_gen[1]:.3f}  {p_gen[2]:.3f}"
             text[i] += f"<br>    Q-Gen:  {q_gen[0]:.3f}  {q_gen[1]:.3f}  {q_gen[2]:.3f}"
         edge = branch_data.loc[branch_data.tb == bus_row.id, :]
@@ -493,7 +535,11 @@ def _make_hover_text(branch_data, bus_data, cap_data, gen_data):
         to_name = bus_row.name
         fb = edge.fb.to_numpy()[0]
         from_name = bus_data.loc[bus_data.id == fb, "name"].to_numpy()[0]
-        sa, sb, sc = edge.s_a.to_numpy()[0], edge.s_b.to_numpy()[0], edge.s_c.to_numpy()[0]
+        sa, sb, sc = (
+            edge.s_a.to_numpy()[0],
+            edge.s_b.to_numpy()[0],
+            edge.s_c.to_numpy()[0],
+        )
         new_text = (
             f"<br>Branch {from_name}→{to_name}"
             f"<br>    P flow:  {np.real(sa):.3f}  {np.real(sb):.3f}  {np.real(sc):.3f}"

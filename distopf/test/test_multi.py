@@ -22,25 +22,26 @@ cap_data_path = Path("./distopf/test/cap_data.csv")
 reg_data_path = Path("./distopf/test/reg_data.csv")
 
 
-def compare_voltages(v1: pd.DataFrame, v2: pd.DataFrame):
-    """
-    Visually compare voltages by plotting two different results.
-    Parameters
-    ----------
-    v1 : pd.DataFrame
-    v2 : pd.DataFrame
+# def compare_voltages(v1: pd.DataFrame, v2: pd.DataFrame):
+#     """
+#     Visually compare voltages by plotting two different results.
+#     Parameters
+#     ----------
+#     v1 : pd.DataFrame
+#     v2 : pd.DataFrame
+#
+#     Returns
+#     -------
+#     fig : Plotly figure object
+#     """
+#     v1 = v1.melt(ignore_index=True, id_vars=["id", "name"], value_vars=["a", "b", "c"], var_name="phase", value_name="v1")
+#     v2 = v2.melt(ignore_index=True, id_vars=["id", "name"], value_vars=["a", "b", "c"], var_name="phase", value_name="v2")
+#     v = pd.merge(v1, v2, on=["name", "phase"])
+#     fig = px.line(v, x="name", facet_col="phase", y=["v1", "v2"], markers=True)
+#     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1].upper()))
+#     fig.for_each_xaxis(lambda a: a.update(title="Bus Name"))
+#     return fig
 
-    Returns
-    -------
-    fig : Plotly figure object
-    """
-    v1 = v1.melt(ignore_index=True, id_vars=["id", "name"], value_vars=["a", "b", "c"], var_name="phase", value_name="v1")
-    v2 = v2.melt(ignore_index=True, id_vars=["id", "name"], value_vars=["a", "b", "c"], var_name="phase", value_name="v2")
-    v = pd.merge(v1, v2, on=["name", "phase"])
-    fig = px.line(v, x="name", facet_col="phase", y=["v1", "v2"], markers=True)
-    fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1].upper()))
-    fig.for_each_xaxis(lambda a: a.update(title="Bus Name"))
-    return fig
 
 class TestMulti(unittest.TestCase):
     def test_loss(self):
@@ -73,7 +74,7 @@ class TestMulti(unittest.TestCase):
                 start_step=start_time,
                 n_steps=1,
             )
-            m1.update()
+            # m1.update()
             gen_data.pa *= gen_mult
             gen_data.pb *= gen_mult
             gen_data.pc *= gen_mult
@@ -89,9 +90,11 @@ class TestMulti(unittest.TestCase):
                 bus_data=bus_data,
                 gen_data=gen_data,
                 reg_data=reg_data,
-                cap_data=cap_data
+                cap_data=cap_data,
             )
-            result1 = opf.multiperiod.opf_solver_multi.cvxpy_solve(m1, opf.multiperiod.cp_obj_loss, solver="CLARABEL")
+            result1 = opf.multiperiod.opf_solver_multi.cvxpy_solve(
+                m1, opf.multiperiod.cp_obj_loss, solver="CLARABEL"
+            )
             v1 = m1.get_voltages(result1.x)
             v1.index = v1.id - 1
             s1 = m1.get_apparent_power_flows(result1.x)
@@ -113,12 +116,11 @@ class TestMulti(unittest.TestCase):
             p_flow1.c = p_flow1.c.apply(np.real)
             q_flow1.c = q_flow1.c.apply(np.imag)
 
-
             result2 = opf.cvxpy_solve(m2, opf.cp_obj_loss, solver="CLARABEL")
             v2 = m2.get_voltages(result2.x)
-            v2.index = v2.id-1
+            v2.index = v2.id - 1
             s2 = m2.get_apparent_power_flows(result2.x)
-            s2.index = s2.tb-1
+            s2.index = s2.tb - 1
 
             q_der2 = m2.get_q_gens(result2.x)
             p_der2 = m2.get_p_gens(result2.x)
@@ -132,7 +134,6 @@ class TestMulti(unittest.TestCase):
             q_flow2.b = q_flow2.b.apply(np.imag)
             p_flow2.c = p_flow2.c.apply(np.real)
             q_flow2.c = q_flow2.c.apply(np.imag)
-
 
             # Assert loads are the same.
             # assert np.nanmax(np.abs(p_load1.a - p_load2.a)) < 1e-9
@@ -197,7 +198,6 @@ class TestMulti(unittest.TestCase):
             bus_data2.ql_b *= load_mult
             bus_data2.ql_c *= load_mult
 
-
             m1 = LinDistModelMulti(
                 branch_data=branch_data,
                 bus_data=bus_data,
@@ -218,8 +218,12 @@ class TestMulti(unittest.TestCase):
                 reg_data=reg_data,
             )
 
-            result1 = opf.multiperiod.opf_solver_multi.cvxpy_solve(m1, opf.multiperiod.opf_solver_multi.cp_obj_curtail, solver="CLARABEL")
-            result2 = opf.cvxpy_solve(m2, opf.opf_solver.cp_obj_curtail, solver="CLARABEL")
+            result1 = opf.multiperiod.opf_solver_multi.cvxpy_solve(
+                m1, opf.multiperiod.opf_solver_multi.cp_obj_curtail, solver="CLARABEL"
+            )
+            result2 = opf.cvxpy_solve(
+                m2, opf.opf_solver.cp_obj_curtail, solver="CLARABEL"
+            )
 
             v1 = m1.get_voltages(result1.x)
             v1.index = v1.id - 1
@@ -244,11 +248,10 @@ class TestMulti(unittest.TestCase):
             p_flow1.c = p_flow1.c.apply(np.real)
             q_flow1.c = q_flow1.c.apply(np.imag)
 
-
             v2 = m2.get_voltages(result2.x)
-            v2.index = v2.id-1
+            v2.index = v2.id - 1
             s2 = m2.get_apparent_power_flows(result2.x)
-            s2.index = s2.tb-1
+            s2.index = s2.tb - 1
 
             p_der2 = m2.get_p_gens(result2.x)
             p_der2.index = p_der2.id - 1
@@ -264,7 +267,6 @@ class TestMulti(unittest.TestCase):
             q_flow2.b = q_flow2.b.apply(np.imag)
             p_flow2.c = p_flow2.c.apply(np.real)
             q_flow2.c = q_flow2.c.apply(np.imag)
-
 
             # Assert DER active power is the same.
             assert np.nanmax(np.abs(p_der1.a - p_der2.a)) < 1e-9
