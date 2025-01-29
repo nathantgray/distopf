@@ -220,62 +220,6 @@ def pyomo_solve(
     return result
 
 
-def pyomo_flex_solve(
-    model: opf.LinDistModel | mpopf.LinDistModelMulti,
-    obj_func: Callable,
-    **kwargs,
-) -> OptimizeResult:
-    import pyomo.environ as pe
-    m = model
-    tic = perf_counter()
-    solver = kwargs.get("solver", "ipopt")
-    x0 = kwargs.get("x0", None)
-    if x0 is None:
-        lin_res = opf.lp_solve(m, np.zeros(m.n_x))
-        if not lin_res.success:
-            raise ValueError(lin_res.message)
-        x0 = lin_res.x.copy()
-
-    cm = pe.ConcreteModel()
-    cm.n_xk = pe.RangeSet(0, model.n_x - 1)
-    cm.n_xk_flex = pe.RangeSet(0, model.n_x)  # last index is for flex variable
-    cm.xk = pe.Var(cm.n_xk_flex, initialize=np.append(x0, [0]))
-    cm.constraints = pe.ConstraintList()
-    for i in range(model.n_x):
-        cm.constraints.add(cm.xk[i] <= model.x_max[i])
-        cm.constraints.add(cm.xk[i] >= model.x_min[i])
-
-    def equality_rule(_cm, i):
-        if model.a_eq[[i], :].nnz > 0:
-            return model.b_eq[i] == sum(_cm.xk[j]*model.a_eq[i, j] for j in range(model.n_x) if model.a_eq[i, j])
-        return pe.Constraint.Skip
-    def inequality_rule(_cm, i):
-        if model.a_ub[[i], :].nnz > 0:
-            return model.b_ub[i] >= sum(_cm.xk[j]*model.a_ub[i, j] for j in range(model.n_x) if model.a_ub[i, j])
-        return pe.Constraint.Skip
-    cm.equality = pe.Constraint(cm.n_xk, rule=equality_rule)
-    if model.a_ub.shape[0] != 0:
-        cm.ineq_set = pe.RangeSet(0, model.a_ub.shape[0] - 1)
-        cm.inequality = pe.Constraint(cm.ineq_set, rule=inequality_rule)
-    cm.objective = pe.Objective(expr=obj_func(model, cm.xk, **kwargs))
-    pe.SolverFactory(solver).solve(cm)
-
-    x_dict = cm.xk.extract_values()
-    x_res = np.zeros(len(x_dict))
-    for key, value in x_dict.items():
-        x_res[key] = value
-
-    result = OptimizeResult(
-        fun=float(pe.value(cm.objective)),
-        # success=(prob.status == "optimal"),
-        # message=prob.status,
-        x=x_res,
-        # nit=prob.solver_stats.num_iters,
-        runtime=perf_counter() - tic,
-    )
-    return result
-
-
 def test():
     branch_data = pd.read_csv("ieee13_battery/branch_data.csv")
     bus_data = pd.read_csv("ieee13_battery/bus_data.csv")
