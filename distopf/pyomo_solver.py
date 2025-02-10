@@ -12,13 +12,13 @@ from collections.abc import Callable, Collection
 from scipy.optimize import OptimizeResult, linprog
 
 
-def pyo_battery_efficiency(model: mpopf.LinDistModelMulti, xk: pe.Var | cp.Variable | np.ndarray, **kwargs):
+def pyo_battery_efficiency(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
     """
 
     Parameters
     ----------
     model : LinDistModel, or LinDistModelP, or LinDistModelQ
-    xk : cp.Variable
+    x : pe.Var
     kwargs :
 
     Returns
@@ -45,12 +45,7 @@ def pyo_battery_efficiency(model: mpopf.LinDistModelMulti, xk: pe.Var | cp.Varia
             index_list.extend(model.discharge_map[t][a].to_numpy())
     vec1 = np.array(vec1_list)
     ix = np.array(index_list)
-    if isinstance(xk, pe.Var):
-        return sum([vec1[i]*xk[ix[i]] for i in range(len(ix))])
-    # if isinstance(xk, cp.Variable):
-    #     return 1e-3 * cp.vdot(vec1, xk[ix])
-    # else:
-    #     return 1e-3 * np.vdot(vec1, xk[ix])
+    return sum([vec1[i]*x[ix[i]] for i in range(len(ix))])
 
 
 def pyo_voltage_reduction(model: opf.LinDistModel , x: pe.Var, **kwargs):
@@ -97,7 +92,7 @@ def pyo_resiliency(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
     return score
 
 
-def pyo_decarb(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
+def pyo_co2_min(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
     net_load = kwargs.get("net_load")
     gen_lists = {"a": [], "b": [], "c": []}
     for t in range(model.start_step, model.start_step + model.n_steps):
@@ -114,59 +109,34 @@ def pyo_decarb(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
     return score
 
 
-def pyo_flex(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
-    rho = kwargs.get("rho")
-    k = kwargs.get("k")
-    if rho is None:
-        raise ValueError("rho cannot be None")
-    if k is None:
-        raise ValueError("k cannot be None")
-    score = 0
-    if k > 1:
-        score = -x[len(x) - 1] * (rho / 2)
-    return score
-
-
 def pyo_global(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
-    cvr_rho = kwargs.pop("cvr_rho")
-    decarb_rho = kwargs.pop("decarb_rho")
-    res_rho = kwargs.pop("res_rho")
-    return (pyo_resiliency(model, x, rho=res_rho, **kwargs)
-            + pyo_flex(model, x, rho=res_rho, **kwargs)
-            + pyo_decarb(model, x, rho=decarb_rho, **kwargs)
-            + pyo_flex(model, x, rho=decarb_rho, **kwargs)
-            + pyo_voltage_reduction_mp(model, x, rho=cvr_rho, **kwargs)
-            + pyo_flex(model, x, rho=cvr_rho, **kwargs)
+    return (pyo_resiliency(model, x, **kwargs)
+            + pyo_decarb(model, x, **kwargs)
+            + pyo_voltage_reduction_mp(model, x, **kwargs)
             + pyo_battery_efficiency(model, x, **kwargs)
             )
 
 
-def pyo_cvr_rho(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
-    cvr_rho = kwargs.pop("cvr_rho")
-    return (pyo_voltage_reduction_mp(model, x, rho=cvr_rho, **kwargs)
-            + pyo_flex(model, x, rho=cvr_rho, **kwargs)
+def pyo_cvr(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
+    return (pyo_voltage_reduction_mp(model, x, **kwargs)
             + pyo_battery_efficiency(model, x, **kwargs)
             )
 
 
-def pyo_res_rho(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
-    res_rho = kwargs.pop("res_rho")
-    return (pyo_resiliency(model, x, rho=res_rho, **kwargs)
-            + pyo_flex(model, x, rho=res_rho, **kwargs)
+def pyo_res(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
+    return (pyo_resiliency(model, x, **kwargs)
             + pyo_battery_efficiency(model, x, **kwargs)
             )
 
 
-def pyo_decarb_rho(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
-    decarb_rho = kwargs.pop("decarb_rho")
-    return (pyo_resiliency(model, x, rho=decarb_rho, **kwargs)
-            + pyo_flex(model, x, rho=decarb_rho, **kwargs)
+def pyo_decarb(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
+    return (pyo_co2_min(model, x, **kwargs)
             + pyo_battery_efficiency(model, x, **kwargs)
             )
 
 
 def pyomo_solve(
-    model: opf.LinDistModel | mpopf.LinDistModelMulti,
+    model: opf.LinDistModel | mpopf.LinDistModelMulti | mpopf.LinDistModelMultiFast,
     obj_func: Callable,
     **kwargs,
 ) -> OptimizeResult:
@@ -221,15 +191,15 @@ def pyomo_solve(
 
 
 def test():
-    branch_data = pd.read_csv("ieee13_battery/branch_data.csv")
-    bus_data = pd.read_csv("ieee13_battery/bus_data.csv")
-    gen_data = pd.read_csv("ieee13_battery/gen_data.csv")
-    cap_data = pd.read_csv("ieee13_battery/cap_data.csv")
-    reg_data = pd.read_csv("ieee13_battery/reg_data.csv")
-    bat_data = pd.read_csv("ieee13_battery/battery_data.csv")
-    load_profile = pd.read_csv("Profiles/ld_shape.csv", names=["M"])
+    branch_data = pd.read_csv(opf.CASES_DIR/"csv"/"ieee13_battery/branch_data.csv")
+    bus_data = pd.read_csv(opf.CASES_DIR/"csv"/"ieee13_battery/bus_data.csv")
+    gen_data = pd.read_csv(opf.CASES_DIR/"csv"/"ieee13_battery/gen_data.csv")
+    cap_data = pd.read_csv(opf.CASES_DIR/"csv"/"ieee13_battery/cap_data.csv")
+    reg_data = pd.read_csv(opf.CASES_DIR/"csv"/"ieee13_battery/reg_data.csv")
+    bat_data = pd.read_csv(opf.CASES_DIR/"csv"/"ieee13_battery/battery_data.csv")
+    load_profile = pd.read_csv(opf.CASES_DIR/"csv"/"ieee13_battery/default_loadshape.csv")
     load_profile["time"] = load_profile.index
-    pv_profile = pd.read_csv("Profiles/pv_shape.csv", names=["PV"])
+    pv_profile = pd.read_csv(opf.CASES_DIR/"csv"/"ieee13_battery/pv_loadshape.csv")
     pv_profile["time"] = pv_profile.index
     bus_data.v_max = 1.2
     bus_data.v_min = 0.8
@@ -246,12 +216,12 @@ def test():
         loadshape_data=load_profile,
         pv_loadshape_data=pv_profile,
         n_steps=4,
-        start_step=45,
-        delta_t=0.25,  # 15 minutes
+        start_step=12,
+        delta_t=1,
 
 
     )
-    result = pyomo_solve(model, pyo_storage_max)
+    result = pyomo_solve(model, pyo_decarb, )
     v = model.get_voltages(result.x)
     v = v.loc[v.t==model.start_step, ["id", "name", "a", "b", "c"]]
     # s = model.get_apparent_power_flows(result.x)
