@@ -944,10 +944,28 @@ class DSSParser:
         )
         loads_flag = self.dss.Loads.First()
         load_data = []
+        model_to_cvr_map = {
+            1: (0, 0),
+            2: (2, 2),
+            3: (0, 2),
+            5: (1, 1),
+            6: (0, 0),
+            7: (0, 2),
+
+        }
         while loads_flag:
             connected_buses = self.dss.CktElement.BusNames()
             if len(connected_buses) > 1:
                 raise Exception("Multiple connected buses")
+            model = self.dss.Loads.Model()
+            cvr_p, cvr_q = model_to_cvr_map.get(model, 0)
+            if model == 4:  # exponential model
+                cvr_p = self.dss.Loads.CVRwatts()
+                cvr_q = self.dss.Loads.CVRvars()
+            if model == 8:  # zip model
+                zipv = self.dss.Loads.ZipV()
+                cvr_p = 2*zipv[0] + zipv[1]
+                cvr_q = 2*zipv[3] + zipv[4]
             bus = connected_buses[0]
             bus_name = bus.split(".")[0]
             each_load = {
@@ -958,6 +976,8 @@ class DSSParser:
                 "ql_b": 0,
                 "pl_c": 0,
                 "ql_c": 0,
+                "cvr_p": cvr_p,
+                "cvr_q": cvr_q,
             }
             bus_split = bus.split(".")
             each_load["id"] = self.bus_names_to_index_map[bus_name]
