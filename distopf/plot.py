@@ -68,7 +68,7 @@ def compare_voltages(v1: pd.DataFrame, v2: pd.DataFrame) -> go.Figure:
         var_name="value",
         id_vars=["id", "name", "phase"],
         value_name="v",
-    )
+    ).sort_values(by=["id", "phase"])
     # v1["v1"] = v1["v1"].astype(float)
     # v2["v2"] = v2["v2"].astype(float)
     # v = pd.merge(v1, v2, on=["name", "phase"])

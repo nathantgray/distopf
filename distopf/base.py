@@ -226,6 +226,7 @@ class LinDistBase(BaseModel):
         self.pg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
+        self.vx_map, self.n_x = self._add_device_variables(self.n_x, self.reg_buses)
 
     def build(self):
         self.initialize_variable_index_pointers()
@@ -424,6 +425,8 @@ class LinDistBase(BaseModel):
             return self.qg_map[phase].get(node_j, [])
         if var in ["qc", "q_cap"]:  # reactive power injection by capacitor
             return self.qc_map[phase].get(node_j, [])
+        if var in ["vx"]:
+            return self.vx_map[phase].get(node_j, [])
         ix = self.additional_variable_idx(var, node_j, phase)
         if ix is not None:
             return ix
@@ -528,16 +531,27 @@ class LinDistBase(BaseModel):
         return a_eq, b_eq
 
     def add_regulator_model(self, a_eq: lil_array, b_eq, j, a) -> (csr_array, np.ndarray):
+        if self.reg is None:
+            return a_eq, b_eq
+        if j not in self.reg.tb:
+            return a_eq, b_eq
         i = self.idx("bi", j, a)[0]  # get the upstream node, i, on branch from i to j
+        pij = self.idx("pij", j, a)
+        qij = self.idx("qij", j, a)
         vi = self.idx("v", i, a)
         vj = self.idx("v", j, a)
+        vx = self.idx("vx", j, a)
+        r, x = self.r, self.x
+        aa = "".join(sorted(a + a))
 
-        if self.reg is not None:
-            if j in self.reg.tb:
-                reg_ratio = get(self.reg[f"ratio_{a}"], j, 1)
-                a_eq[vj, vj] = 1
-                a_eq[vj, vi] = -1 * reg_ratio**2
-                return a_eq, b_eq
+        a_eq[vj, vj] = 1
+        a_eq[vj, vx] = -1
+        a_eq[vj, pij] = 2 * r[aa][i, j]
+        a_eq[vj, qij] = 2 * x[aa][i, j]
+
+        reg_ratio = get(self.reg[f"ratio_{a}"], j, 1)
+        a_eq[vx, vx] = 1
+        a_eq[vx, vi] = -1 * reg_ratio**2
         return a_eq, b_eq
 
     def add_swing_voltage_model(self, a_eq: lil_array, b_eq, j, a) -> (csr_array, np.ndarray):

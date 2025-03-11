@@ -45,13 +45,14 @@ class TestDSS(unittest.TestCase):
                 s_df = model.get_apparent_power_flows(result.x)
                 v_diff = v_df.copy()
                 v_diff.loc[:, ["a", "b", "c"]] = (
-                    v_df.loc[:, ["a", "b", "c"]].astype(float)
-                    - dss_parser.v_solved.loc[:, ["a", "b", "c"]].abs()
+                    (v_df.loc[:, ["a", "b", "c"]].astype(float)
+                    - dss_parser.v_solved.loc[:, ["a", "b", "c"]]).abs()
                 )
                 v_rdiff = (
                     v_diff.loc[:, ["a", "b", "c"]]
-                    / dss_parser.v_solved.loc[:, ["a", "b", "c"]].abs()
+                    / dss_parser.v_solved.loc[:, ["a", "b", "c"]]
                 )
+                v_diff = v_diff.loc[:, ["a", "b", "c"]]
 
                 s_df = (
                     s_df.groupby(by=["fb", "tb"], as_index=False)
@@ -75,7 +76,7 @@ class TestDSS(unittest.TestCase):
                 p_err = max(abs(p_opf - p_dss).flatten())
                 q_err = max(abs(q_opf - q_dss).flatten())
                 print(
-                    f"{mult:.1f}: V error %: {v_rdiff.max().max():.3%} -- P error (pu): {p_err:.3e} -- Q error (pu): {q_err:.3e}"
+                    f"{mult:.1f}: V error pu: {v_diff.max().max():.5e} --V error %: {v_rdiff.max().max():.3%} -- P error (pu): {p_err:.3e} -- Q error (pu): {q_err:.3e}"
                 )
                 assert v_rdiff.max().max() < 0.12
                 assert p_err < 2

@@ -44,6 +44,7 @@ class LinDistModelPGen(LinDistBase):
         self.v_map, self.n_x = self._add_device_variables(self.n_x, self.all_buses)
         self.pg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
+        self.vx_map, self.n_x = self._add_device_variables(self.n_x, self.reg_buses)
 
     def add_generator_limits(self, x_lim_lower, x_lim_upper):
         for a in "abc":
@@ -70,6 +71,8 @@ class LinDistModelPGen(LinDistBase):
             return get(self.pg_map[phase], node_j, [])
         if var in ["qc", "q_cap"]:  # reactive power injection by capacitor
             return get(self.qc_map[phase], node_j, [])
+        if var in ["vx"]:
+            return self.vx_map[phase].get(node_j, [])
         ix = self.additional_variable_idx(var, node_j, phase)
         if ix is not None:
             return ix

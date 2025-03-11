@@ -83,6 +83,7 @@ class LinDistModelL(LinDistBase):
         self.pg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
+        self.vx_map, self.n_x = self._add_device_variables(self.n_x, self.reg_buses)
         self.pl_map, self.n_x = self._add_device_variables(self.n_x, self.load_buses)
         self.ql_map, self.n_x = self._add_device_variables(self.n_x, self.load_buses)
 

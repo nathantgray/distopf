@@ -6,6 +6,7 @@ import networkx as nx
 import numpy as np
 import opendssdirect as dss
 import pandas as pd
+from fontTools.ttLib.tables.E_B_L_C_ import bitmapSizeTableFormatPart1
 
 
 class DSSParser:
@@ -503,8 +504,8 @@ class DSSParser:
                 {
                     "fb": "max",
                     "tb": "max",
-                    "from_name": "sum",
-                    "to_name": "sum",
+                    "from_name": "first",
+                    "to_name": "first",
                     "raa": "sum",
                     "rab": "sum",
                     "rac": "sum",
@@ -854,22 +855,25 @@ class DSSParser:
 
     def get_reg_data(self) -> pd.DataFrame:
         s_base = self.s_base
-        flag = self.dss.Transformers.First()
         reg_data = []
+        reg_control_names = self.dss.RegControls.AllNames()
+        reg_names = []
+        if len(reg_control_names) != 0:
+            dss_reg_df = self.dss.utils.regcontrols_to_dataframe()
+            reg_names = dss_reg_df.Transformer.to_list()
+        flag = self.dss.Transformers.First()
         while flag:
-            switch_status = None
             element_type = self.dss.CktElement.Name().lower().split(".")[0]
             element_name = self.dss.CktElement.Name().lower().split(".")[1]
-            z_matrix_real = z_matrix_imag = np.zeros((3, 3))
             if element_type not in ["transformer"]:
-                flag = self.dss.PDElements.Next()
+                flag = self.dss.Transformers.Next()
+                continue
+            if element_name not in reg_names:
+                flag = self.dss.Transformers.Next()
                 continue
             bus1 = self.dss.CktElement.BusNames()[0].split(".")[0]
-            bus2 = self.dss.CktElement.BusNames()[1].split(".")[0]
+            bus2 = self.dss.CktElement.BusNames()[-1].split(".")[0]
             self.dss.Circuit.SetActiveBus(bus2)
-            # self.dss.Circuit.SetActiveBus(self.dss.Lines.Bus2().split(".")[0])
-            base_kv_ln = self.dss.Bus.kVBase()
-            z_base = (base_kv_ln * 1000) ** 2 / s_base
             line_phases = self.dss.CktElement.BusNames()[0].split(".")[1:]
             line_phases = sorted(line_phases)
 
@@ -879,15 +883,13 @@ class DSSParser:
                 # three phases are usually represented by either .1.2.3 or nothing in opendss
                 # for second case we should ensure that 3 phase is actually represented
                 line_phases = "[1, 2, 3]"
-            try:
-
-                line_phase = self.num_phase_map[line_phases]
-            except:
-                breakpoint()
+            line_phase = self.num_phase_map[line_phases]
             tap = self.dss.Transformers.Tap()
             each_reg = {}
             each_reg["fb"] = self.bus_names_to_index_map[bus1]
             each_reg["tb"] = self.bus_names_to_index_map[bus2]
+            each_reg["from_name"] = bus1
+            each_reg["to_name"] = bus2
             for ph in line_phase:
                 each_reg[f"ratio_{ph}"] = tap
             each_reg["phases"] = line_phase
@@ -902,6 +904,8 @@ class DSSParser:
                 {
                     "fb": [],
                     "tb": [],
+                    "from_name": [],
+                    "to_name": [],
                     "ratio_a": [],
                     "ratio_b": [],
                     "ratio_c": [],
@@ -912,6 +916,8 @@ class DSSParser:
             {
                 "fb": "first",
                 "tb": "first",
+                "from_name": "first",
+                "to_name": "first",
                 "ratio_a": "max",
                 "ratio_b": "max",
                 "ratio_c": "max",

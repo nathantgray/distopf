@@ -47,6 +47,7 @@ class LinDistModelCapMI(LinDistBase):
         self.pg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qg_map, self.n_x = self._add_device_variables(self.n_x, self.gen_buses)
         self.qc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
+        self.vx_map, self.n_x = self._add_device_variables(self.n_x, self.reg_buses)
         self.zc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
         self.uc_map, self.n_x = self._add_device_variables(self.n_x, self.cap_buses)
 
