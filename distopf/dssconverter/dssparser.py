@@ -66,6 +66,20 @@ class DSSParser:
             if element_type not in ["line", "transformer", "reactor"]:
                 flag = self.dss.PDElements.Next()
                 continue
+
+            if element_type == "line" and self.dss.Lines.IsSwitch():
+                element_type = "switch"
+                switch_status = (
+                    "OPEN"
+                    if (
+                            self.dss.CktElement.IsOpen(1, 0)
+                            or self.dss.CktElement.IsOpen(2, 0)
+                    )
+                    else "CLOSED"
+                )
+                if switch_status == "OPEN":
+                    flag = self.dss.PDElements.Next()
+                    continue
             bus1 = self.dss.CktElement.BusNames()[0].split(".")[0]
             bus2 = self.dss.CktElement.BusNames()[1].split(".")[0]
             branches.append((bus1, bus2))
@@ -207,7 +221,7 @@ class DSSParser:
                 flag = self.dss.PDElements.Next()
                 continue
             s_out = self._get_powers() * 1000 / self.s_base
-            if element_type not in ["line", "transformer"]:
+            if element_type not in ["line", "transformer", "reactor"]:
                 flag = self.dss.PDElements.Next()
                 continue
             bus1 = self.dss.CktElement.BusNames()[0].split(".")[0]
@@ -452,6 +466,11 @@ class DSSParser:
                 z_matrix_real, z_matrix_imag = self._get_reactor_zmatrix()
             bus1 = self.dss.CktElement.BusNames()[0].split(".")[0]
             bus2 = self.dss.CktElement.BusNames()[1].split(".")[0]
+            fb = self.bus_names_to_index_map[bus1]
+            tb = self.bus_names_to_index_map[bus2]
+            if fb > tb:
+                fb, tb = tb, fb
+                bus1, bus2 = bus2, bus1
             self.dss.Circuit.SetActiveBus(bus2)
             base_kv_ln = self.dss.Bus.kVBase()
             z_base = (base_kv_ln * 1000) ** 2 / s_base
@@ -463,11 +482,6 @@ class DSSParser:
                 active_phases = self.dss.CktElement.BusNames()[0].split(".")[1:]
                 active_phases = np.array(active_phases).astype(int) - 1
                 phases = "".join("abc"[i] for i in active_phases)
-            fb = self.bus_names_to_index_map[bus1]
-            tb = self.bus_names_to_index_map[bus2]
-            if fb > tb:
-                fb, tb = tb, fb
-                bus1, bus2 = bus2, bus1
             each_line = dict(
                 fb=fb,
                 tb=tb,
@@ -873,6 +887,13 @@ class DSSParser:
                 continue
             bus1 = self.dss.CktElement.BusNames()[0].split(".")[0]
             bus2 = self.dss.CktElement.BusNames()[-1].split(".")[0]
+            fb = self.bus_names_to_index_map[bus1]
+            tb = self.bus_names_to_index_map[bus2]
+            tap_direction = 1
+            if fb > tb:
+                fb, tb = tb, fb
+                bus1, bus2 = bus2, bus1
+                tap_direction = -1
             self.dss.Circuit.SetActiveBus(bus2)
             line_phases = self.dss.CktElement.BusNames()[0].split(".")[1:]
             line_phases = sorted(line_phases)
@@ -884,14 +905,15 @@ class DSSParser:
                 # for second case we should ensure that 3 phase is actually represented
                 line_phases = "[1, 2, 3]"
             line_phase = self.num_phase_map[line_phases]
-            tap = self.dss.Transformers.Tap()
+            ratio = self.dss.Transformers.Tap()
+            tap = (ratio - 1) / 0.00625 * tap_direction
             each_reg = {}
             each_reg["fb"] = self.bus_names_to_index_map[bus1]
             each_reg["tb"] = self.bus_names_to_index_map[bus2]
             each_reg["from_name"] = bus1
             each_reg["to_name"] = bus2
             for ph in line_phase:
-                each_reg[f"ratio_{ph}"] = tap
+                each_reg[f"tap_{ph}"] = int(round(tap))
             each_reg["phases"] = line_phase
             reg_data.append(each_reg)
 
@@ -906,9 +928,9 @@ class DSSParser:
                     "tb": [],
                     "from_name": [],
                     "to_name": [],
-                    "ratio_a": [],
-                    "ratio_b": [],
-                    "ratio_c": [],
+                    "tap_a": [],
+                    "tap_b": [],
+                    "tap_c": [],
                     "phases": [],
                 }
             )
@@ -918,17 +940,17 @@ class DSSParser:
                 "tb": "first",
                 "from_name": "first",
                 "to_name": "first",
-                "ratio_a": "max",
-                "ratio_b": "max",
-                "ratio_c": "max",
+                "tap_a": "max",
+                "tap_b": "max",
+                "tap_c": "max",
                 "phases": "sum",
             }
         )
         reg_df = reg_df.reset_index(drop=True)
         reg_df = reg_df.sort_values(by="tb", ignore_index=True).fillna(1)
-        reg_df["tap_a"] = (reg_df["ratio_a"] - 1) / 0.00625
-        reg_df["tap_b"] = (reg_df["ratio_b"] - 1) / 0.00625
-        reg_df["tap_c"] = (reg_df["ratio_c"] - 1) / 0.00625
+        # reg_df["tap_a"] = (reg_df["ratio_a"] - 1) / 0.00625
+        # reg_df["tap_b"] = (reg_df["ratio_b"] - 1) / 0.00625
+        # reg_df["tap_c"] = (reg_df["ratio_c"] - 1) / 0.00625
         return reg_df
 
     def _get_loads(self) -> dict[str, list[float]]:
