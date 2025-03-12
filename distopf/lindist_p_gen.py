@@ -1,3 +1,4 @@
+from typing import Optional
 from functools import cache
 import numpy as np
 import pandas as pd
@@ -30,11 +31,11 @@ class LinDistModelPGen(LinDistBase):
 
     def __init__(
         self,
-        branch_data: pd.DataFrame = None,
-        bus_data: pd.DataFrame = None,
-        gen_data: pd.DataFrame = None,
-        cap_data: pd.DataFrame = None,
-        reg_data: pd.DataFrame = None,
+        branch_data: Optional[pd.DataFrame] = None,
+        bus_data: Optional[pd.DataFrame] = None,
+        gen_data: Optional[pd.DataFrame] = None,
+        cap_data: Optional[pd.DataFrame] = None,
+        reg_data: Optional[pd.DataFrame] = None,
     ):
         super().__init__(branch_data, bus_data, gen_data, cap_data, reg_data)
         self.build()
@@ -169,15 +170,15 @@ class LinDistModelPGen(LinDistBase):
         s_df["b"] = s_df["b"].astype(complex)
         s_df["c"] = s_df["c"].astype(complex)
         for ph in "abc":
-            fb_idxs = self.x_maps[ph].bi.values
+            fb_idxs = self.x_maps[ph].bi.to_numpy()
             fb_names = self.bus.name[fb_idxs].to_numpy()
-            tb_idxs = self.x_maps[ph].bj.values
+            tb_idxs = self.x_maps[ph].bj.to_numpy()
             tb_names = self.bus.name[tb_idxs].to_numpy()
-            s_df.loc[self.x_maps[ph].bj.values + 1, "fb"] = fb_idxs + 1
-            s_df.loc[self.x_maps[ph].bj.values + 1, "tb"] = tb_idxs + 1
-            s_df.loc[self.x_maps[ph].bj.values + 1, "from_name"] = fb_names
-            s_df.loc[self.x_maps[ph].bj.values + 1, "to_name"] = tb_names
-            s_df.loc[self.x_maps[ph].bj.values + 1, ph] = (
+            s_df.loc[self.x_maps[ph].bj.to_numpy() + 1, "fb"] = fb_idxs + 1
+            s_df.loc[self.x_maps[ph].bj.to_numpy() + 1, "tb"] = tb_idxs + 1
+            s_df.loc[self.x_maps[ph].bj.to_numpy() + 1, "from_name"] = fb_names
+            s_df.loc[self.x_maps[ph].bj.to_numpy() + 1, "to_name"] = tb_names
+            s_df.loc[self.x_maps[ph].bj.to_numpy() + 1, ph] = (
                 x[self.x_maps[ph].pij] + 1j * x[self.x_maps[ph].qij]
             )
         return s_df

@@ -360,8 +360,7 @@ def cvxpy_solve(
         x0 = lin_res.x.copy()
     x = cp.Variable(shape=(m.n_x,), name="x", value=x0)
     g = [m.a_eq @ x - m.b_eq.flatten() == 0]
-    # lb = [x[i] >= m.bounds[i][0] for i in range(m.n_x)]
-    # ub = [x[i] <= m.bounds[i][1] for i in range(m.n_x)]
+
     lb = [x >= m.x_min]
     ub = [x <= m.x_max]
     g_inequality = []

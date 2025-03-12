@@ -14,6 +14,7 @@ from distopf.dedicated.lindist_q import LinDistModelQ
 from distopf.lindist import LinDistModel
 from distopf.lindist_q_gen import LinDistModelQGen
 from distopf.lindist_p_gen import LinDistModelPGen
+from distopf.multiperiod.lindist_mp import LinDistMP
 import distopf as opf
 from distopf import CASES_DIR
 
@@ -70,6 +71,19 @@ class TestModelConsistency(unittest.TestCase):
                 start_step=start_time,
                 n_steps=1,
             )
+            mf2 = LinDistMP(
+                branch_data=branch_data,
+                bus_data=bus_data,
+                gen_data=gen_data,
+                reg_data=reg_data,
+                cap_data=cap_data,
+                loadshape_data=default_loadshape,
+                pv_loadshape_data=pv_loadshape,
+                # bat_data=battery_data,
+                start_step=start_time,
+                n_steps=1,
+            )
+            mf2.build()
             gen_data.pa *= gen_mult
             gen_data.pb *= gen_mult
             gen_data.pc *= gen_mult
@@ -117,6 +131,9 @@ class TestModelConsistency(unittest.TestCase):
             resultf = opf.multiperiod.opf_solver_multi.cvxpy_solve(
                 mf, opf.multiperiod.cp_obj_loss, solver="CLARABEL"
             )
+            resultf2 = opf.multiperiod.opf_solver_multi.cvxpy_solve(
+                mf2, opf.multiperiod.cp_obj_loss, solver="CLARABEL"
+            )
             result2 = opf.cvxpy_solve(m2, opf.cp_obj_loss, solver="CLARABEL")
             result3 = opf.cvxpy_solve(m3, opf.cp_obj_loss, solver="CLARABEL")
             result4 = opf.cvxpy_solve(m4, opf.cp_obj_loss, solver="CLARABEL")
@@ -125,6 +142,7 @@ class TestModelConsistency(unittest.TestCase):
             print(start_time)
             print(f"multi:  objective={result1.fun}\t in {result1.runtime}s")
             print(f"mpFast: objective={resultf.fun}\t in {resultf.runtime}")
+            print(f"mpFast2: objective={resultf2.fun}\t in {resultf2.runtime}")
             print(f"single: objective={result2.fun}\t in {result2.runtime}s")
             print(f"Q old: objective={result3.fun}\t in {result3.runtime}s")
             print(f"PQ fast:   objective={result4.fun}\t in {result4.runtime}s")

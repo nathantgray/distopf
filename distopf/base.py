@@ -1,11 +1,12 @@
 from functools import cache
-
+from typing import Optional, Tuple
 import networkx as nx
 import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
-from scipy.sparse import csr_array, lil_array
+from scipy.sparse import csr_array, lil_array  # type: ignore
 import distopf as opf
+import warnings
 from distopf.utils import (
     handle_branch_input,
     handle_bus_input,
@@ -37,11 +38,11 @@ class BaseModel:
 
     def __init__(
         self,
-        branch_data: pd.DataFrame = None,
-        bus_data: pd.DataFrame = None,
-        gen_data: pd.DataFrame = None,
-        cap_data: pd.DataFrame = None,
-        reg_data: pd.DataFrame = None,
+        branch_data: Optional[pd.DataFrame] = None,
+        bus_data: Optional[pd.DataFrame] = None,
+        gen_data: Optional[pd.DataFrame] = None,
+        cap_data: Optional[pd.DataFrame] = None,
+        reg_data: Optional[pd.DataFrame] = None,
     ):
         # ~~~~~~~~~~~~~~~~~~~~ Load Data Frames ~~~~~~~~~~~~~~~~~~~~
         self.branch = handle_branch_input(branch_data)
@@ -107,20 +108,20 @@ class BaseModel:
             )
         # ~~ initialize index pointers ~~
         self.n_x = 0
-        self.x_maps = None
-        self.v_maps = None
-        self.pg_map = None
-        self.qg_map = None
-        self.qc_map = None
-        self.pl_map = None
-        self.ql_map = None
+        self.x_maps: dict[str, pd.DataFrame] = {}
+        self.v_map: dict[str, pd.Series] = {}
+        self.pg_map: dict[str, pd.Series] = {}
+        self.qg_map: dict[str, pd.Series] = {}
+        self.qc_map: dict[str, pd.Series] = {}
+        self.pl_map: dict[str, pd.Series] = {}
+        self.ql_map: dict[str, pd.Series] = {}
         # ~~~~~~~~~~~~~~~~~~~~ initialize Aeq and beq ~~~~~~~~~~~~~~~~~~~~
-        self.a_eq, self.b_eq = None, None
-        self.a_ub, self.b_ub = None, None
-        self.bounds = None
-        self.bounds_tuple = None
-        self.x_min = None
-        self.x_max = None
+        self.a_eq, self.b_eq = csr_array([0]), zeros(0)
+        self.a_ub, self.b_ub = csr_array([0]), zeros(0)
+        self.bounds: np.ndarray = zeros(0)
+        self.bounds_tuple: list[tuple] = []
+        self.x_min: np.ndarray = zeros(0)
+        self.x_max: np.ndarray = zeros(0)
 
     @staticmethod
     def _init_rx(branch):
@@ -238,7 +239,7 @@ class LinDistBase(BaseModel):
         self.x_max = self.bounds[:, 1]
 
     @staticmethod
-    def _variable_tables(branch, n_x=0):
+    def _variable_tables(branch, n_x=0) -> Tuple[dict[str, pd.DataFrame], int]:
         """
         Constructs tables to map branch power variables to indices within the
         optimization variable vector.
@@ -266,7 +267,7 @@ class LinDistBase(BaseModel):
             if n_lines == 0:
                 x_maps[a] = df.astype(int)
                 continue
-            g = nx.Graph()
+            g: nx.Graph = nx.Graph()
             g.add_edges_from(lines)
             i_root = list(set(lines[:, 0]) - set(lines[:, 1]))[
                 0
@@ -282,7 +283,9 @@ class LinDistBase(BaseModel):
         return x_maps, n_x
 
     @staticmethod
-    def _add_device_variables(n_x: int, device_buses: dict):
+    def _add_device_variables(
+        n_x: int, device_buses: dict
+    ) -> Tuple[dict[str, pd.Series], int]:
         """
         Adds device-related variables (e.g., voltage, power load) to the
         optimization problem, indexed by the phase.
@@ -314,7 +317,7 @@ class LinDistBase(BaseModel):
         n_x = n_x + n_a + n_b + n_c
         return device_maps, n_x
 
-    def init_bounds(self):
+    def init_bounds(self) -> np.ndarray:
         """
         Initializes the variable bounds for the optimization problem.
 
@@ -334,7 +337,9 @@ class LinDistBase(BaseModel):
         # bounds = [(l, u) for (l, u) in zip(x_lim_lower, x_lim_upper)]
         return bounds
 
-    def user_added_limits(self, x_lim_lower, x_lim_upper):
+    def user_added_limits(
+        self, x_lim_lower, x_lim_upper
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         User added limits function. Override this function to add custom variable limits.
         Parameters
@@ -363,7 +368,9 @@ class LinDistBase(BaseModel):
         """
         return x_lim_lower, x_lim_upper
 
-    def add_voltage_limits(self, x_lim_lower, x_lim_upper):
+    def add_voltage_limits(
+        self, x_lim_lower, x_lim_upper
+    ) -> Tuple[np.ndarray, np.ndarray]:
         for a in "abc":
             if not self.phase_exists(a):
                 continue
@@ -372,7 +379,9 @@ class LinDistBase(BaseModel):
             x_lim_lower[self.v_map[a]] = self.bus.loc[self.v_map[a].index, "v_min"] ** 2
         return x_lim_lower, x_lim_upper
 
-    def add_generator_limits(self, x_lim_lower, x_lim_upper):
+    def add_generator_limits(
+        self, x_lim_lower, x_lim_upper
+    ) -> Tuple[np.ndarray, np.ndarray]:
         for a in "abc":
             if not self.phase_exists(a):
                 continue
@@ -448,12 +457,12 @@ class LinDistBase(BaseModel):
         return None
 
     @cache
-    def phase_exists(self, phase, index: int = None) -> bool:
+    def phase_exists(self, phase, index: Optional[int] = None) -> bool:
         if index is None:
             return self.x_maps[phase].shape[0] > 0
         return len(self.idx("bj", index, phase)) > 0
 
-    def create_model(self) -> (csr_array, np.ndarray):
+    def create_model(self) -> Tuple[csr_array, np.ndarray]:
         """
         Constructs the equality constraint matrices for the linear optimization
         problem based on power flow equations.
@@ -486,7 +495,9 @@ class LinDistBase(BaseModel):
                 a_eq, b_eq = self.add_capacitor_model(a_eq, b_eq, j, a)
         return csr_array(a_eq), b_eq
 
-    def add_power_flow_model(self, a_eq: lil_array, b_eq, j, phase) -> (csr_array, np.ndarray):
+    def add_power_flow_model(
+        self, a_eq: lil_array, b_eq, j, phase
+    ) -> Tuple[lil_array, np.ndarray]:
         pij = self.idx("pij", j, phase)
         qij = self.idx("qij", j, phase)
         pjk = self.idx("pjk", j, phase)
@@ -499,7 +510,9 @@ class LinDistBase(BaseModel):
         a_eq[qij, qjk] = -1
         return a_eq, b_eq
 
-    def add_voltage_drop_model(self, a_eq: lil_array, b_eq, j, a, b, c) -> (csr_array, np.ndarray):
+    def add_voltage_drop_model(
+        self, a_eq: lil_array, b_eq, j, a, b, c
+    ) -> Tuple[lil_array, np.ndarray]:
         if self.reg is not None:
             if j in self.reg.tb:
                 return a_eq, b_eq
@@ -530,7 +543,9 @@ class LinDistBase(BaseModel):
             a_eq[vj, qijc] = -x[ac][i, j] + sqrt(3) * r[ac][i, j]
         return a_eq, b_eq
 
-    def add_regulator_model(self, a_eq: lil_array, b_eq, j, a) -> (csr_array, np.ndarray):
+    def add_regulator_model(
+        self, a_eq: lil_array, b_eq, j, a
+    ) -> Tuple[lil_array, np.ndarray]:
         if self.reg is None:
             return a_eq, b_eq
         if j not in self.reg.tb:
@@ -554,7 +569,9 @@ class LinDistBase(BaseModel):
         a_eq[vx, vi] = -1 * reg_ratio**2
         return a_eq, b_eq
 
-    def add_swing_voltage_model(self, a_eq: lil_array, b_eq, j, a) -> (csr_array, np.ndarray):
+    def add_swing_voltage_model(
+        self, a_eq: lil_array, b_eq, j, a
+    ) -> Tuple[lil_array, np.ndarray]:
         i = self.idx("bi", j, a)[0]  # get the upstream node, i, on branch from i to j
         vi = self.idx("v", i, a)
         # Set V equation variable coefficients in a_eq and constants in b_eq
@@ -563,7 +580,9 @@ class LinDistBase(BaseModel):
             b_eq[vi] = self.bus.at[i, f"v_{a}"] ** 2
         return a_eq, b_eq
 
-    def add_generator_model(self, a_eq: lil_array, b_eq, j, a) -> (csr_array, np.ndarray):
+    def add_generator_model(
+        self, a_eq: lil_array, b_eq, j, a
+    ) -> Tuple[lil_array, np.ndarray]:
         p_gen_nom, q_gen_nom = 0, 0
         if self.gen is not None:
             p_gen_nom = get(self.gen[f"p{a}"], j, 0)
@@ -584,7 +603,9 @@ class LinDistBase(BaseModel):
             b_eq[qg] = q_gen_nom
         return a_eq, b_eq
 
-    def add_load_model(self, a_eq: lil_array, b_eq, j, a) -> (csr_array, np.ndarray):
+    def add_load_model(
+        self, a_eq: lil_array, b_eq, j, a
+    ) -> Tuple[lil_array, np.ndarray]:
         pij = self.idx("pij", j, a)
         qij = self.idx("qij", j, a)
         vj = self.idx("v", j, a)
@@ -600,12 +621,14 @@ class LinDistBase(BaseModel):
             b_eq[qij] = (1 - (self.bus.cvr_q[j] / 2)) * q_load_nom
         return a_eq, b_eq
 
-    def add_capacitor_model(self, a_eq: lil_array, b_eq, j, a) -> (csr_array, np.ndarray):
-        qij = self.idx("qij", j, a)
+    def add_capacitor_model(
+        self, a_eq: lil_array, b_eq, j, a
+    ) -> Tuple[lil_array, np.ndarray]:
         q_cap_nom = 0
         if self.cap is not None:
             q_cap_nom = get(self.cap[f"q{a}"], j, 0)
         # equation indexes
+        qij = self.idx("qij", j, a)
         vj = self.idx("v", j, a)
         qc = self.idx("q_cap", j, a)
         a_eq[qij, qc] = 1  # add capacitor q variable to power flow equation
@@ -613,7 +636,7 @@ class LinDistBase(BaseModel):
         a_eq[qc, vj] = -q_cap_nom
         return a_eq, b_eq
 
-    def create_inequality_constraints(self) -> (csr_array, np.ndarray):
+    def create_inequality_constraints(self) -> Tuple[csr_array, np.ndarray]:
         """
         Constructs the inequality constraint matrices.
         a_ub*x <= b_ub
@@ -628,9 +651,9 @@ class LinDistBase(BaseModel):
         a_ub, b_ub = self.create_octagon_constraints()
         return csr_array(a_ub), b_ub
 
-    def create_hexagon_constraints(self) -> (csr_array, np.ndarray):
+    def create_hexagon_constraints(self) -> Tuple[csr_array, np.ndarray]:
         """
-        Use an octagon to approximate the circular inequality constraint of an inverter.
+        Use a hexagon to approximate the circular inequality constraint of an inverter.
         """
         n_inequalities = 5
         n_rows_ineq = n_inequalities * (
@@ -675,7 +698,7 @@ class LinDistBase(BaseModel):
                     ineq[n_ineq] += len(ineq)
         return csr_array(a_ineq), b_ineq
 
-    def create_octagon_constraints(self) -> (csr_array, np.ndarray):
+    def create_octagon_constraints(self) -> Tuple[csr_array, np.ndarray]:
         """
         Use an octagon to approximate the circular inequality constraint of an inverter.
         """
@@ -774,56 +797,58 @@ class LinDistBase(BaseModel):
         s_df["b"] = s_df["b"].astype(complex)
         s_df["c"] = s_df["c"].astype(complex)
         for ph in "abc":
-            fb_idxs = self.x_maps[ph].bi.values
+            fb_idxs = self.x_maps[ph].bi.to_numpy()
             fb_names = self.bus.name[fb_idxs].to_numpy()
-            tb_idxs = self.x_maps[ph].bj.values
+            tb_idxs = self.x_maps[ph].bj.to_numpy()
             tb_names = self.bus.name[tb_idxs].to_numpy()
-            s_df.loc[self.x_maps[ph].bj.values + 1, "fb"] = fb_idxs + 1
-            s_df.loc[self.x_maps[ph].bj.values + 1, "tb"] = tb_idxs + 1
-            s_df.loc[self.x_maps[ph].bj.values + 1, "from_name"] = fb_names
-            s_df.loc[self.x_maps[ph].bj.values + 1, "to_name"] = tb_names
-            s_df.loc[self.x_maps[ph].bj.values + 1, ph] = (
+            s_df.loc[self.x_maps[ph].bj.to_numpy() + 1, "fb"] = fb_idxs + 1
+            s_df.loc[self.x_maps[ph].bj.to_numpy() + 1, "tb"] = tb_idxs + 1
+            s_df.loc[self.x_maps[ph].bj.to_numpy() + 1, "from_name"] = fb_names
+            s_df.loc[self.x_maps[ph].bj.to_numpy() + 1, "to_name"] = tb_names
+            s_df.loc[self.x_maps[ph].bj.to_numpy() + 1, ph] = (
                 x[self.x_maps[ph].pij] + 1j * x[self.x_maps[ph].qij]
             )
         return s_df
 
     def update(
         self,
-        bus_data: pd.DataFrame = None,
-        gen_data: pd.DataFrame = None,
-        cap_data: pd.DataFrame = None,
-        reg_data: pd.DataFrame = None,
+        bus_data: Optional[pd.DataFrame] = None,
+        gen_data: Optional[pd.DataFrame] = None,
+        cap_data: Optional[pd.DataFrame] = None,
+        reg_data: Optional[pd.DataFrame] = None,
     ):
-        if bus_data is not None:
-            self.bus = bus_data
-        if gen_data is not None:
-            self.gen = gen_data
-        if cap_data is not None:
-            self.cap = cap_data
-        if reg_data is not None:
-            self.reg = reg_data
 
+        # TODO: update is untested!
+        warnings.warn("update method is untested!")
+        if bus_data is not None:
+            self.bus = handle_bus_input(bus_data)
+        if gen_data is not None:
+            self.gen = handle_gen_input(gen_data)
+        if cap_data is not None:
+            self.cap = handle_cap_input(cap_data)
+        if reg_data is not None:
+            self.reg = handle_reg_input(reg_data)
+
+        a_eq = lil_array(self.a_eq)
         for j in range(1, self.nb):
             for ph in ["abc", "bca", "cab"]:
                 a, b, c = ph[0], ph[1], ph[2]
                 if not self.phase_exists(a, j):
                     continue
                 if bus_data is not None:
-                    self._a_eq, self._b_eq = self.add_swing_voltage_model(
-                        self.a_eq, self.b_eq, j, a
+                    a_eq, self.b_eq = self.add_swing_voltage_model(
+                        a_eq, self.b_eq, j, a
                     )
-                    self._a_eq, self._b_eq = self.add_load_model(
-                        self.a_eq, self.b_eq, j, a
-                    )
+                    a_eq, self.b_eq = self.add_load_model(a_eq, self.b_eq, j, a)
                 if gen_data is not None:
-                    self._a_eq, self._b_eq = self.add_generator_model(
-                        self.a_eq, self.b_eq, j, a
-                    )
+                    a_eq, self.b_eq = self.add_generator_model(a_eq, self.b_eq, j, a)
                 if cap_data is not None:
-                    self._a_eq, self._b_eq = self.add_capacitor_model(
-                        self.a_eq, self.b_eq, j, a
-                    )
+                    a_eq, self.b_eq = self.add_capacitor_model(a_eq, self.b_eq, j, a)
                 if reg_data is not None:
-                    self._a_eq, self._b_eq = self.add_regulator_model(
-                        self.a_eq, self.b_eq, j, a
-                    )
+                    a_eq, self.b_eq = self.add_regulator_model(a_eq, self.b_eq, j, a)
+        self.a_eq = csr_array(a_eq)
+        self.a_ub, self.b_ub = self.create_inequality_constraints()
+        self.bounds = self.init_bounds()
+        self.bounds_tuple = list(map(tuple, self.bounds))
+        self.x_min = self.bounds[:, 0]
+        self.x_max = self.bounds[:, 1]

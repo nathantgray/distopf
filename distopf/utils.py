@@ -1,4 +1,5 @@
 import pandas as pd
+from typing import Optional
 
 
 def get(s: pd.Series, i, default=None):
@@ -20,7 +21,7 @@ def get(s: pd.Series, i, default=None):
         return default
 
 
-def handle_gen_input(gen_data: pd.DataFrame) -> pd.DataFrame:
+def handle_gen_input(gen_data: Optional[pd.DataFrame]) -> pd.DataFrame:
     if gen_data is None:
         return pd.DataFrame(
             columns=[
@@ -52,7 +53,7 @@ def handle_gen_input(gen_data: pd.DataFrame) -> pd.DataFrame:
     return gen
 
 
-def handle_cap_input(cap_data: pd.DataFrame) -> pd.DataFrame:
+def handle_cap_input(cap_data: Optional[pd.DataFrame]) -> pd.DataFrame:
     if cap_data is None:
         return pd.DataFrame(
             columns=[
@@ -69,7 +70,7 @@ def handle_cap_input(cap_data: pd.DataFrame) -> pd.DataFrame:
     return cap
 
 
-def handle_reg_input(reg_data: pd.DataFrame) -> pd.DataFrame:
+def handle_reg_input(reg_data: Optional[pd.DataFrame]) -> pd.DataFrame:
     if reg_data is None:
         return pd.DataFrame(
             columns=[
@@ -101,7 +102,7 @@ def handle_reg_input(reg_data: pd.DataFrame) -> pd.DataFrame:
     return reg
 
 
-def handle_branch_input(branch_data: pd.DataFrame) -> pd.DataFrame:
+def handle_branch_input(branch_data: Optional[pd.DataFrame]) -> pd.DataFrame:
     if branch_data is None:
         raise ValueError("Branch data must be provided.")
     branch = branch_data.sort_values(by="tb", ignore_index=True)
@@ -109,7 +110,7 @@ def handle_branch_input(branch_data: pd.DataFrame) -> pd.DataFrame:
     return branch
 
 
-def handle_bus_input(bus_data: pd.DataFrame) -> pd.DataFrame:
+def handle_bus_input(bus_data: Optional[pd.DataFrame]) -> pd.DataFrame:
     if bus_data is None:
         raise ValueError("Bus data must be provided.")
     bus = bus_data.sort_values(by="id", ignore_index=True)
@@ -117,7 +118,7 @@ def handle_bus_input(bus_data: pd.DataFrame) -> pd.DataFrame:
     return bus
 
 
-def handle_loadshape_input(loadshape_data: pd.DataFrame) -> pd.DataFrame:
+def handle_loadshape_input(loadshape_data: Optional[pd.DataFrame]) -> pd.DataFrame:
     if loadshape_data is None:
         return pd.DataFrame(
             columns=[
@@ -130,7 +131,9 @@ def handle_loadshape_input(loadshape_data: pd.DataFrame) -> pd.DataFrame:
     return loadshape
 
 
-def handle_pv_loadshape_input(pv_loadshape_data: pd.DataFrame) -> pd.DataFrame:
+def handle_pv_loadshape_input(
+    pv_loadshape_data: Optional[pd.DataFrame],
+) -> pd.DataFrame:
     if pv_loadshape_data is None:
         return pd.DataFrame(
             columns=[
@@ -143,7 +146,7 @@ def handle_pv_loadshape_input(pv_loadshape_data: pd.DataFrame) -> pd.DataFrame:
     return pv_loadshape
 
 
-def handle_bat_input(bat_data: pd.DataFrame) -> pd.DataFrame:
+def handle_bat_input(bat_data: Optional[pd.DataFrame]) -> pd.DataFrame:
     if bat_data is None:
         return pd.DataFrame(
             columns=[

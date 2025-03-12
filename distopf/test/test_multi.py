@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.express as px
 from distopf import plot_network, compare_flows, compare_voltages
 from distopf import opf_solver
-from distopf.multiperiod import LinDistModelMulti
+from distopf.multiperiod.lindist_loads_mp import LinDistMPL
 from distopf.multiperiod import LinDistModelMultiFast
 from distopf import LinDistModelL
 import distopf as opf
@@ -53,7 +53,7 @@ class TestMulti(unittest.TestCase):
             bus_data.v_a = 1.0
             bus_data.v_b = 1.0
             bus_data.v_c = 1.0
-            m1 = LinDistModelMulti(
+            m1 = LinDistMPL(
                 branch_data=branch_data,
                 bus_data=bus_data,
                 gen_data=gen_data,
@@ -187,7 +187,7 @@ class TestMulti(unittest.TestCase):
             bus_data2.ql_b *= load_mult
             bus_data2.ql_c *= load_mult
 
-            m1 = LinDistModelMulti(
+            m1 = LinDistMPL(
                 branch_data=branch_data,
                 bus_data=bus_data,
                 gen_data=gen_data,

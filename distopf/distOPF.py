@@ -2,6 +2,7 @@
 This module contains high-level helper functions for creating and running provided models, solvers, and objectives.
 """
 
+from typing import Optional
 from collections.abc import Callable
 from pathlib import Path
 import json
@@ -318,19 +319,19 @@ class DistOPFCase(object):
         self.show_plots = kwargs.get("show_plots", False)
 
         # Import case
-        self.branch_data = None
-        self.bus_data = None
-        self.gen_data = None
-        self.cap_data = None
-        self.reg_data = None
+        self.branch_data: Optional[pd.DataFrame] = None
+        self.bus_data: Optional[pd.DataFrame] = None
+        self.gen_data: Optional[pd.DataFrame] = None
+        self.cap_data: Optional[pd.DataFrame] = None
+        self.reg_data: Optional[pd.DataFrame] = None
         if self.data_path is not None:
             self.data_path = _handle_path_input(Path(self.data_path))
             case_data = _get_data_from_path(self.data_path)
-            self.branch_data = case_data["branch_data"]
-            self.bus_data = case_data["bus_data"]
-            self.gen_data = case_data["gen_data"]
-            self.cap_data = case_data["cap_data"]
-            self.reg_data = case_data["reg_data"]
+            self.branch_data: pd.DataFrame = case_data["branch_data"]
+            self.bus_data: pd.DataFrame = case_data["bus_data"]
+            self.gen_data: pd.DataFrame = case_data["gen_data"]
+            self.cap_data: pd.DataFrame = case_data["cap_data"]
+            self.reg_data: pd.DataFrame = case_data["reg_data"]
         if kwargs.get("branch_data") is not None:
             self.branch_data = handle_branch_input(kwargs.get("branch_data"))
         if kwargs.get("bus_data") is not None:

@@ -1,6 +1,4 @@
-from functools import cache
-
-import networkx as nx
+from typing import Optional
 import numpy as np
 import pandas as pd
 from numpy import sqrt, zeros
@@ -30,11 +28,11 @@ class LinDistModelCapMI(LinDistBase):
 
     def __init__(
         self,
-        branch_data: pd.DataFrame = None,
-        bus_data: pd.DataFrame = None,
-        gen_data: pd.DataFrame = None,
-        cap_data: pd.DataFrame = None,
-        reg_data: pd.DataFrame = None,
+        branch_data: Optional[pd.DataFrame] = None,
+        bus_data: Optional[pd.DataFrame] = None,
+        gen_data: Optional[pd.DataFrame] = None,
+        cap_data: Optional[pd.DataFrame] = None,
+        reg_data: Optional[pd.DataFrame] = None,
     ):
         super().__init__(
             branch_data, bus_data, gen_data, cap_data=cap_data, reg_data=reg_data
@@ -70,7 +68,9 @@ class LinDistModelCapMI(LinDistBase):
             return self.uc_map[phase].get(node_j, [])
         return None
 
-    def add_capacitor_model(self, a_eq: csr_array, b_eq, j, a) -> (csr_array, np.ndarray):
+    def add_capacitor_model(
+        self, a_eq: csr_array, b_eq, j, a
+    ) -> (csr_array, np.ndarray):
         qij = self.idx("qij", j, a)
         q_cap_nom = 0
         if self.cap is not None:

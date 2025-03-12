@@ -1,3 +1,4 @@
+from typing import Optional
 import pandas as pd
 from distopf.base import LinDistBase
 import distopf as opf
@@ -65,11 +66,11 @@ class LinDistModel(LinDistBase):
 
     def __init__(
         self,
-        branch_data: pd.DataFrame = None,
-        bus_data: pd.DataFrame = None,
-        gen_data: pd.DataFrame = None,
-        cap_data: pd.DataFrame = None,
-        reg_data: pd.DataFrame = None,
+        branch_data: Optional[pd.DataFrame] = None,
+        bus_data: Optional[pd.DataFrame] = None,
+        gen_data: Optional[pd.DataFrame] = None,
+        cap_data: Optional[pd.DataFrame] = None,
+        reg_data: Optional[pd.DataFrame] = None,
     ):
         super().__init__(branch_data, bus_data, gen_data, cap_data, reg_data)
         self.build()
@@ -87,23 +88,11 @@ if __name__ == "__main__":
         cap_data=case.cap_data,
         reg_data=case.reg_data,
     )
-    model2 = opf.LinDistModel(
-        branch_data=case.branch_data,
-        bus_data=case.bus_data,
-        gen_data=case.gen_data,
-        cap_data=case.cap_data,
-        reg_data=case.reg_data,
-    )
     # Solve the model using the specified objective function
     result = opf.lp_solve(model, opf.gradient_load_min(model))
-    result2 = opf.lp_solve(model2, opf.gradient_load_min(model2))
     # Extract and plot results
     v = model.get_voltages(result.x)
-    v2 = model.get_voltages(result.x)
     s = model.get_apparent_power_flows(result.x)
-    s2 = model2.get_apparent_power_flows(result.x)
-    opf.compare_voltages(v, v2).show()
-    opf.compare_flows(s, s2).show()
     # s = model.get_apparent_power_flows(result.x)
     # p_gens = model.get_p_gens(result.x)
     # q_gens = model.get_q_gens(result.x)

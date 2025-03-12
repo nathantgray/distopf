@@ -1,3 +1,4 @@
+from typing import Optional
 from collections.abc import Callable
 from time import perf_counter
 import numpy as np
@@ -11,11 +12,11 @@ import distopf as opf
 class LinDistModelCapacitorRegulatorMI(opf.LinDistModelCapMI):
     def __init__(
         self,
-        branch_data: pd.DataFrame = None,
-        bus_data: pd.DataFrame = None,
-        gen_data: pd.DataFrame = None,
-        cap_data: pd.DataFrame = None,
-        reg_data: pd.DataFrame = None,
+        branch_data: Optional[pd.DataFrame] = None,
+        bus_data: Optional[pd.DataFrame] = None,
+        gen_data: Optional[pd.DataFrame] = None,
+        cap_data: Optional[pd.DataFrame] = None,
+        reg_data: Optional[pd.DataFrame] = None,
     ):
         super().__init__(
             branch_data=branch_data,
