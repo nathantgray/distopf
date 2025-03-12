@@ -407,17 +407,15 @@ def cvxpy_solve(
         x0 = lin_res.x.copy()
     x = cp.Variable(shape=(m.n_x,), name="x", value=x0)
     g = [csr_array(m.a_eq) @ x - m.b_eq.flatten() == 0]
+    g_inequality = []
+    if m.a_ub is not None and m.b_ub is not None:
+        if m.a_ub.shape[0] != 0 and m.a_ub.shape[1] != 0:
+            g_inequality = [m.a_ub @ x - m.b_ub <= 0]
 
-    if m.a_ineq.shape[0] != 0:
-        h = [csr_array(m.a_ineq) @ x - m.b_ineq.flatten() <= 0]
-    else:
-        h = []
-    lb = [x[i] >= m.bounds[i][0] for i in range(m.n_x)]
-    ub = [x[i] <= m.bounds[i][1] for i in range(m.n_x)]
-    # error_percent = kwargs.get("error_percent", np.zeros(3))
-    # target = kwargs.get("target", None)
+    lb = [x >= m.x_min]
+    ub = [x <= m.x_max]
     expression = obj_func(m, x, **kwargs)
-    prob = cp.Problem(cp.Minimize(expression), g + h + ub + lb)
+    prob = cp.Problem(cp.Minimize(expression), g + g_inequality + ub + lb)
     prob.solve(verbose=False, solver=solver)
 
     x_res = x.value
@@ -491,6 +489,8 @@ def lp_solve(
         message : str
             A string descriptor of the exit status of the algorithm.
     """
+    if isinstance(c, Callable):
+        c = c(model)
     if c is None:
         c = np.zeros(model.n_x)
     tic = perf_counter()
@@ -498,8 +498,8 @@ def lp_solve(
         c,
         A_eq=csr_array(model.a_eq),
         b_eq=model.b_eq.flatten(),
-        A_ub=csr_array(model.a_ineq),
-        b_ub=model.b_ineq.flatten(),
+        A_ub=model.a_ub,
+        b_ub=model.b_ub,
         bounds=model.bounds,
     )
     if not res.success:
