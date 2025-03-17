@@ -6,7 +6,6 @@ import networkx as nx
 import numpy as np
 import opendssdirect as dss
 import pandas as pd
-from fontTools.ttLib.tables.E_B_L_C_ import bitmapSizeTableFormatPart1
 
 
 class DSSParser:
@@ -72,8 +71,8 @@ class DSSParser:
                 switch_status = (
                     "OPEN"
                     if (
-                            self.dss.CktElement.IsOpen(1, 0)
-                            or self.dss.CktElement.IsOpen(2, 0)
+                        self.dss.CktElement.IsOpen(1, 0)
+                        or self.dss.CktElement.IsOpen(2, 0)
                     )
                     else "CLOSED"
                 )
@@ -973,7 +972,6 @@ class DSSParser:
             5: (1, 1),
             6: (0, 0),
             7: (0, 2),
-
         }
         while loads_flag:
             connected_buses = self.dss.CktElement.BusNames()
@@ -986,8 +984,8 @@ class DSSParser:
                 cvr_q = self.dss.Loads.CVRvars()
             if model == 8:  # zip model
                 zipv = self.dss.Loads.ZipV()
-                cvr_p = 2*zipv[0] + zipv[1]
-                cvr_q = 2*zipv[3] + zipv[4]
+                cvr_p = 2 * zipv[0] + zipv[1]
+                cvr_q = 2 * zipv[3] + zipv[4]
             bus = connected_buses[0]
             bus_name = bus.split(".")[0]
             each_load = {
