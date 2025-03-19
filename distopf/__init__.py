@@ -44,14 +44,8 @@ PQ_FREE = "OUT"
 SWING_BUS = "SWING"
 PQ_BUS = "PQ"
 # generator mode options
-# CONSTANT_PQ = "CONSTANT_PQ"
-# CONSTANT_P = "CONSTANT_P"
-# CONSTANT_Q = "CONSTANT_Q"
-# CONTROL_PQ = "CONTROL_PQ"
-
 CONSTANT_PQ = ""
 CONSTANT_P = "Q"
 CONSTANT_Q = "P"
 CONTROL_PQ = "PQ"
 # fmt: on
-
