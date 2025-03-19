@@ -28,8 +28,9 @@ def gradient_load_min(model: LinDistBase, *args, **kwargs) -> np.ndarray:
     """
     c = np.zeros(model.n_x)
     for ph in "abc":
-        if model.phase_exists(ph):
-            c[model.idx("pij", model.swing_bus, ph)] = 1
+        if not model.phase_exists(ph):
+            continue
+        c[model.idx("pjk", model.swing_bus, ph)] = 1
     return c
 
 
