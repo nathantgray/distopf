@@ -788,6 +788,8 @@ class LinDistBaseMP(BaseModelMP):
             return a_eq, b_eq
         if t < self.start_step:
             t = self.start_step
+        pij = self.idx("pij", j, a, t=t)
+        qij = self.idx("qij", j, a, t=t)
         soc_j = self.idx("soc", j, a, t=t)
         discharge_j = self.idx("discharge", j, a, t=t)
         charge_j = self.idx("charge", j, a, t=t)
@@ -795,6 +797,8 @@ class LinDistBaseMP(BaseModelMP):
         nd = self.bat[f"nd_{a}"].get(j, 1)
         soc0 = self.bat[f"b0_{a}"].get(j, 0)
         # soc0 = self.bat[f"energy_start_{phase}"].get(j, 0)
+        a_eq[pij, discharge_j] = 1
+        a_eq[pij, charge_j] = -1
         a_eq[soc_j, discharge_j] = 1 / nd * self.delta_t
         a_eq[soc_j, charge_j] = -nc * self.delta_t
         a_eq[soc_j, soc_j] = 1

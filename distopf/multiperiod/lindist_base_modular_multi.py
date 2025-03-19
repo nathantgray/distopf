@@ -506,7 +506,9 @@ class LinDistModelMulti:
                     a_eq, b_eq = self.add_battery_model(a_eq, b_eq, j, a, t=t)
         return csr_array(a_eq), b_eq
 
-    def add_power_flow_model(self, a_eq, b_eq, j, phase, t=0) -> (csr_array, np.ndarray):
+    def add_power_flow_model(
+        self, a_eq, b_eq, j, phase, t=0
+    ) -> (csr_array, np.ndarray):
         if t < self.start_step:
             t = self.start_step
         pij = self.idx("pij", j, phase, t=t)
@@ -535,7 +537,9 @@ class LinDistModelMulti:
         a_eq[qij, qc] = 1
         return a_eq, b_eq
 
-    def add_voltage_drop_model(self, a_eq, b_eq, j, a, b, c, t=0) -> (csr_array, np.ndarray):
+    def add_voltage_drop_model(
+        self, a_eq, b_eq, j, a, b, c, t=0
+    ) -> (csr_array, np.ndarray):
         if t < self.start_step:
             t = self.start_step
         if self.reg is not None:

@@ -185,6 +185,7 @@ def charge_batteries(model, xk, **kwargs) -> cp.Expression:
             f_list.append(-cp.sum(xk[model.soc_map[t][a].to_numpy()]))
     return cp.sum(f_list)
 
+
 #
 # def peak_shave(model, xk):
 #     f: cp.Expression = 0
@@ -502,6 +503,17 @@ def lp_solve(
         b_ub=model.b_ub,
         bounds=model.bounds,
     )
+    if not res.success:
+        raise ValueError(res.message)
+    runtime = perf_counter() - tic
+    res["runtime"] = runtime
+    return res
+
+
+def pf(model) -> OptimizeResult:
+    c = np.zeros(model.n_x)
+    tic = perf_counter()
+    res = linprog(c, A_eq=csr_array(model.a_eq), b_eq=model.b_eq.flatten())
     if not res.success:
         raise ValueError(res.message)
     runtime = perf_counter() - tic
