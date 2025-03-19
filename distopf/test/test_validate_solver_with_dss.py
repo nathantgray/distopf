@@ -10,11 +10,11 @@ from distopf.lindist_q_gen import LinDistModelQGen
 import distopf as opf
 from distopf.test import TEST_DIR
 
-bus_data_path = TEST_DIR / Path("bus_data.csv")
-gen_data_path = TEST_DIR / Path("gen_data.csv")
-cap_data_path = TEST_DIR / Path("cap_data.csv")
-reg_data_path = TEST_DIR / Path("reg_data.csv")
-assert bus_data_path.exists()
+# bus_data_path = TEST_DIR / Path("bus_data.csv")
+gen_data_path = TEST_DIR / Path("gen_data_2.csv")
+# cap_data_path = TEST_DIR / Path("cap_data.csv")
+# reg_data_path = TEST_DIR / Path("reg_data.csv")
+# assert bus_data_path.exists()
 
 
 def max_flow_difference(s1: pd.DataFrame, s2: pd.DataFrame) -> float:
@@ -210,7 +210,7 @@ def assert_results_equal(model_new, model_old, res_new, res_old):
 
 class TestDssValidation(unittest.TestCase):
     def test_loss(self):
-        bus_data = pd.read_csv(bus_data_path)
+        # bus_data = pd.read_csv(bus_data_path)
         gen_data = pd.read_csv(gen_data_path)
         p_rating_mult = 3
         load_mult = 1
