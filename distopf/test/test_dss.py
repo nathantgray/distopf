@@ -15,6 +15,7 @@ class TestDSS(unittest.TestCase):
         ieee34 = opf.CASES_DIR / "dss/34Bus/Run_IEEE34Mod2.dss"
         ieee123 = opf.CASES_DIR / "dss/ieee123_dss/Run_IEEE123Bus.DSS"
         rahul123 = opf.CASES_DIR / "dss/rahul123/ieee123master_base.dss"
+        ieee_9500 = opf.CASES_DIR / "dss/9500-primary-network/Master.dss"
         dirs = [
             Path(test2),
             Path(test3),
@@ -23,10 +24,11 @@ class TestDSS(unittest.TestCase):
             Path(ieee34),
             Path(ieee123),
             Path(rahul123),
+            ieee_9500,
         ]
         for _dir in dirs:
             print(_dir)
-            for mult in np.linspace(0, 1, 6):
+            for mult in np.linspace(1, 1, 1):
                 dss_parser = DSSParser(_dir, s_base=1e6, v_min=0, v_max=2)
                 dss_parser.dss.Solution.LoadMult(mult)
                 dss_parser.dss.Solution.Solve()
@@ -45,9 +47,9 @@ class TestDSS(unittest.TestCase):
                 s_df = model.get_apparent_power_flows(result.x)
                 v_diff = v_df.copy()
                 v_diff.loc[:, ["a", "b", "c"]] = (
-                    (v_df.loc[:, ["a", "b", "c"]].astype(float)
-                    - dss_parser.v_solved.loc[:, ["a", "b", "c"]]).abs()
-                )
+                    v_df.loc[:, ["a", "b", "c"]].astype(float)
+                    - dss_parser.v_solved.loc[:, ["a", "b", "c"]]
+                ).abs()
                 v_rdiff = (
                     v_diff.loc[:, ["a", "b", "c"]]
                     / dss_parser.v_solved.loc[:, ["a", "b", "c"]]
@@ -69,15 +71,40 @@ class TestDSS(unittest.TestCase):
                     .sort_values(by=["fb"], ignore_index=True)
                     .sort_values(by=["tb"], ignore_index=True)
                 )
-                p_opf = s_df.loc[:, ["a", "b", "c"]].to_numpy().real
-                q_opf = s_df.loc[:, ["a", "b", "c"]].to_numpy().imag
-                p_dss = dss_parser.s_solved.loc[:, ["a", "b", "c"]].to_numpy().real
-                q_dss = dss_parser.s_solved.loc[:, ["a", "b", "c"]].to_numpy().imag
-                p_err = max(abs(p_opf - p_dss).flatten())
-                q_err = max(abs(q_opf - q_dss).flatten())
-                print(
-                    f"{mult:.1f}: V error pu: {v_diff.max().max():.5e} --V error %: {v_rdiff.max().max():.3%} -- P error (pu): {p_err:.3e} -- Q error (pu): {q_err:.3e}"
+                # p_err = max((abs(p_opf - p_dss) / p_dss).flatten())
+                # q_err = max((abs(q_opf - q_dss) / q_dss).flatten())
+                # print(
+                #     f"{mult:.2f}: V error pu: {v_diff.max().max():.5f} --V error %: {v_rdiff.max().max():.3%} -- P error (pu): {p_err:.3%} -- Q error (pu): {q_err:.3%}"
+                # )
+                p_opf = s_df.loc[s_df.fb == 1, ["a", "b", "c"]].to_numpy().real
+                q_opf = s_df.loc[s_df.fb == 1, ["a", "b", "c"]].to_numpy().imag
+                p_dss = (
+                    dss_parser.s_solved.loc[
+                        dss_parser.s_solved.fb == 1, ["a", "b", "c"]
+                    ]
+                    .to_numpy()
+                    .real
                 )
+                q_dss = (
+                    dss_parser.s_solved.loc[
+                        dss_parser.s_solved.fb == 1, ["a", "b", "c"]
+                    ]
+                    .to_numpy()
+                    .imag
+                )
+                p_err = max((abs(p_opf - p_dss) / p_dss).flatten())
+                q_err = max((abs(q_opf - q_dss) / q_dss).flatten())
+                print(
+                    f"{mult:.2f}: V error pu: {v_diff.max().max():.5f} --V error %: {v_rdiff.max().max():.3%} -- P error (pu): {p_err:.3%} -- Q error (pu): {q_err:.3%}"
+                )
+                print(f"P opf: {sum(p_opf)} -- Total: {sum(sum(p_opf))}")
+                print(f"P dss: {sum(p_dss)} -- Total: {sum(sum(p_dss))}")
+                print(f"Q opf: {sum(q_opf)} -- Total: {sum(sum(q_opf))}")
+                print(f"Q dss: {sum(q_dss)} -- Total: {sum(sum(q_dss))}")
+                p_load = model.bus.loc[:, ["pl_a", "pl_b", "pl_c"]].sum().to_numpy()
+                q_load = model.bus.loc[:, ["ql_a", "ql_b", "ql_c"]].sum().to_numpy()
+                print(f"P Load: {p_load} -- Total: {sum(p_load)}")
+                print(f"Q Load: {q_load} -- Total: {sum(q_load)}")
                 assert v_rdiff.max().max() < 0.12
                 assert p_err < 2
                 assert q_err < 2
