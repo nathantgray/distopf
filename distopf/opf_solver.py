@@ -7,13 +7,12 @@ from scipy.optimize import OptimizeResult, linprog
 from scipy.sparse import csr_array
 import distopf as opf
 from distopf import (
-    LinDistModelL,
+    LinDistModel,
     LinDistModelCapMI,
 )
-from distopf.base import LinDistBase
 
 
-def gradient_load_min(model: LinDistBase, *args, **kwargs) -> np.ndarray:
+def gradient_load_min(model: LinDistModel, *args, **kwargs) -> np.ndarray:
     """
     Gradient of the objective function to minimize the load at the substation.
     c has a 1 for each active power flow out of the substation.
@@ -28,13 +27,12 @@ def gradient_load_min(model: LinDistBase, *args, **kwargs) -> np.ndarray:
     """
     c = np.zeros(model.n_x)
     for ph in "abc":
-        if not model.phase_exists(ph):
-            continue
-        c[model.idx("pjk", model.swing_bus, ph)] = 1
+        if model.phase_exists(ph):
+            c[model.idx("pij", model.swing_bus, ph)] = 1
     return c
 
 
-def gradient_curtail(model: LinDistBase, *args, **kwargs) -> np.ndarray:
+def gradient_curtail(model: LinDistModel, *args, **kwargs) -> np.ndarray:
     """
     Gradient of the objective function to minimize curtailment of DERs.
     Parameters
@@ -48,11 +46,15 @@ def gradient_curtail(model: LinDistBase, *args, **kwargs) -> np.ndarray:
 
     """
 
+
     all_pg_idx = np.array([])
     for a in "abc":
         if not model.phase_exists(a):
             continue
-        all_pg_idx = np.r_[all_pg_idx, model.pg_map[a].to_numpy()]
+        all_pg_idx = np.r_[
+            all_pg_idx,
+            model.pg_map[a].to_numpy()
+        ]
     all_pg_idx = all_pg_idx.astype(int)
     c = np.zeros(model.n_x)
     c[all_pg_idx] = -1
@@ -60,7 +62,7 @@ def gradient_curtail(model: LinDistBase, *args, **kwargs) -> np.ndarray:
 
 
 # ~~~ Quadratic objective with linear constraints for use with solve_quad()~~~
-def cp_obj_loss(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Expression:
+def cp_obj_loss(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression:
     """
 
     Parameters
@@ -89,12 +91,12 @@ def cp_obj_loss(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Expression:
     r = np.array(r_list)
     ix = np.array(index_list).astype(int)
     if isinstance(xk, cp.Variable):
-        return cp.vdot(r, xk[ix] ** 2)
+        return cp.vdot(r, xk[ix]**2)
     else:
-        return np.vdot(r, xk[ix] ** 2)
+        return np.vdot(r, xk[ix]**2)
 
 
-def cp_obj_loss_old(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Expression:
+def cp_obj_loss_old(model: LinDistModel, xk: cp.Variable, **kwargs) -> cp.Expression:
     """
 
     Parameters
@@ -123,7 +125,9 @@ def cp_obj_loss_old(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Express
     return cp.sum(f_list)
 
 
-def cp_obj_target_p_3ph(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Expression:
+def cp_obj_target_p_3ph(
+    model: LinDistModel, xk: cp.Variable, **kwargs
+) -> cp.Expression:
     """
 
     Parameters
@@ -156,7 +160,7 @@ def cp_obj_target_p_3ph(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Exp
 
 
 def cp_obj_target_p_total(
-    model: LinDistBase, xk: cp.Variable, **kwargs
+    model: LinDistModel | LinDistModel, xk: cp.Variable, **kwargs
 ) -> cp.Expression:
     """
 
@@ -189,7 +193,9 @@ def cp_obj_target_p_total(
     return f
 
 
-def cp_obj_target_q_3ph(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Expression:
+def cp_obj_target_q_3ph(
+    model: LinDistModel, xk: cp.Variable, **kwargs
+) -> cp.Expression:
     """
 
     Parameters
@@ -221,7 +227,7 @@ def cp_obj_target_q_3ph(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Exp
 
 
 def cp_obj_target_q_total(
-    model: LinDistBase, xk: cp.Variable, **kwargs
+    model: LinDistModel, xk: cp.Variable, **kwargs
 ) -> cp.Expression:
     """
     Parameters
@@ -273,7 +279,9 @@ def cp_obj_target_q_total(
 #     return f
 
 
-def cp_obj_curtail(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Expression:
+def cp_obj_curtail(
+    model: LinDistModel, xk: cp.Variable, **kwargs
+) -> cp.Expression:
     """
     Objective function to minimize curtailment of DERs.
     Min sum((P_der_max - P_der)^2)
@@ -292,12 +300,17 @@ def cp_obj_curtail(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Expressi
     for a in "abc":
         if not model.phase_exists(a):
             continue
-        all_pg_idx = np.r_[all_pg_idx, model.pg_map[a].to_numpy()]
+        all_pg_idx = np.r_[
+            all_pg_idx,
+            model.pg_map[a].to_numpy()
+        ]
     all_pg_idx = all_pg_idx.astype(int)
     return cp.sum((model.x_max[all_pg_idx] - xk[all_pg_idx]) ** 2)
 
 
-def cp_obj_curtail_lp(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Expression:
+def cp_obj_curtail_lp(
+    model: LinDistModel, xk: cp.Variable, **kwargs
+) -> cp.Expression:
     """
     Objective function to minimize curtailment of DERs.
     Min sum((P_der_max - P_der)^2)
@@ -316,7 +329,10 @@ def cp_obj_curtail_lp(model: LinDistBase, xk: cp.Variable, **kwargs) -> cp.Expre
     for a in "abc":
         if not model.phase_exists(a):
             continue
-        all_pg_idx = np.r_[all_pg_idx, model.pg_map[a].to_numpy()]
+        all_pg_idx = np.r_[
+            all_pg_idx,
+            model.pg_map[a].to_numpy()
+        ]
     all_pg_idx = all_pg_idx.astype(int)
     return cp.sum((model.x_max[all_pg_idx] - xk[all_pg_idx]))
 
@@ -333,7 +349,7 @@ def cp_obj_none(*args, **kwargs) -> cp.Constant:
 
 
 def cvxpy_solve(
-    model: LinDistBase,
+    model: LinDistModel,
     obj_func: Callable,
     **kwargs,
 ) -> OptimizeResult:
@@ -361,7 +377,8 @@ def cvxpy_solve(
         x0 = lin_res.x.copy()
     x = cp.Variable(shape=(m.n_x,), name="x", value=x0)
     g = [m.a_eq @ x - m.b_eq.flatten() == 0]
-
+    # lb = [x[i] >= m.bounds[i][0] for i in range(m.n_x)]
+    # ub = [x[i] <= m.bounds[i][1] for i in range(m.n_x)]
     lb = [x >= m.x_min]
     ub = [x <= m.x_max]
     g_inequality = []
@@ -393,7 +410,7 @@ def cvxpy_mi_solve(
     Solve a convex optimization problem using cvxpy.
     Parameters
     ----------
-    model : LinDistModelCapMI
+    model : LinDistModel, or LinDistModelP, or LinDistModelQ
     obj_func : handle to the objective function
     kwargs :
 
@@ -416,13 +433,16 @@ def cvxpy_mi_solve(
     u_c = cp.Variable(shape=(n_u,), name="u_c", value=np.ones(n_u), boolean=True)
     u_idxs = np.r_[m.uc_map["a"], m.uc_map["b"], m.uc_map["c"]]
     gu = [x[u_idxs] == u_c]
-    g_ineq = [csr_array(m.a_ub) @ x - m.b_ub.flatten() <= 0]
+    g_ineq = [csr_array(m.a_ineq) @ x - m.b_ineq.flatten() <= 0]
     g = [csr_array(m.a_eq) @ x - m.b_eq.flatten() == 0]
     lb = [x[i] >= m.bounds[i][0] for i in range(m.n_x)]
     ub = [x[i] <= m.bounds[i][1] for i in range(m.n_x)]
-    expression = obj_func(m, x, **kwargs)
+
+    error_percent = kwargs.get("error_percent", np.zeros(3))
+    target = kwargs.get("target", None)
+    expression = obj_func(m, x, target=target, error_percent=error_percent)
     prob = cp.Problem(cp.Minimize(expression), g + ub + lb + gu + g_ineq)
-    prob.solve(verbose=True, solver=solver)
+    prob.solve(verbose=False, solver=solver)
 
     x_res = x.value
     result = OptimizeResult(
@@ -448,8 +468,8 @@ def pf(model) -> OptimizeResult:
 
 
 def lp_solve(
-    model: LinDistBase,
-    c: (np.ndarray, Callable) = None,
+    model: LinDistModel,
+    c: np.ndarray | Callable = None,
     **kwargs,
 ) -> OptimizeResult:
     """
@@ -457,7 +477,7 @@ def lp_solve(
         Min c^T x
     Parameters
     ----------
-    model : LinDistBase
+    model : LinDistModel
     c :  1-D array
         The coefficients of the linear objective function to be minimized.
     Returns
@@ -506,81 +526,10 @@ def lp_solve(
         c = np.zeros(model.n_x)
     tic = perf_counter()
     res = linprog(
-        c,
-        A_eq=csr_array(model.a_eq),
-        b_eq=model.b_eq.flatten(),
-        A_ub=model.a_ub,
-        b_ub=model.b_ub,
-        bounds=model.bounds,
+        c, A_eq=csr_array(model.a_eq), b_eq=model.b_eq.flatten(), A_ub=model.a_ub, b_ub=model.b_ub, bounds=model.bounds
     )
     if not res.success:
         raise ValueError(res.message)
     runtime = perf_counter() - tic
     res["runtime"] = runtime
     return res
-
-
-def pyomo_solve(
-    model: LinDistBase,
-    obj_func: Callable,
-    **kwargs,
-) -> OptimizeResult:
-    import pyomo.environ as pe
-
-    m = model
-    tic = perf_counter()
-    solver = kwargs.get("solver", "ipopt")
-    x0 = kwargs.get("x0", None)
-    if x0 is None:
-        lin_res = lp_solve(m, np.zeros(m.n_x))
-        if not lin_res.success:
-            raise ValueError(lin_res.message)
-        x0 = lin_res.x.copy()
-
-    cm = pe.ConcreteModel()
-    cm.n_xk = pe.RangeSet(0, model.n_x - 1)
-    cm.xk = pe.Var(cm.n_xk)
-    cm.constraints = pe.ConstraintList()
-    for i in range(model.n_x):
-        cm.constraints.add(cm.xk[i] <= model.x_max[i])
-        cm.constraints.add(cm.xk[i] >= model.x_min[i])
-
-    def equality_rule(_cm, i):
-        if model.a_eq[[i], :].nnz > 0:
-            return model.b_eq[i] == sum(
-                _cm.xk[j] * model.a_eq[i, j]
-                for j in range(model.n_x)
-                if model.a_eq[i, j]
-            )
-        return pe.Constraint.Skip
-
-    def inequality_rule(_cm, i):
-        if model.a_ub[[i], :].nnz > 0:
-            return model.b_ub[i] >= sum(
-                _cm.xk[j] * model.a_ub[i, j]
-                for j in range(model.n_x)
-                if model.a_ub[i, j]
-            )
-        return pe.Constraint.Skip
-
-    cm.equality = pe.Constraint(cm.n_xk, rule=equality_rule)
-    if model.a_ub.shape[0] != 0:
-        cm.ineq_set = pe.RangeSet(0, model.a_ub.shape[0] - 1)
-        cm.inequality = pe.Constraint(cm.ineq_set, rule=inequality_rule)
-    cm.objective = pe.Objective(expr=obj_func)
-    pe.SolverFactory(solver).solve(cm)
-
-    x_dict = cm.xk.extract_values()
-    x_res = np.zeros(len(x_dict))
-    for key, value in x_dict.items():
-        x_res[key] = value
-
-    result = OptimizeResult(
-        fun=float(pe.value(cm.objective)),
-        # success=(prob.status == "optimal"),
-        # message=prob.status,
-        x=x_res,
-        # nit=prob.solver_stats.num_iters,
-        runtime=perf_counter() - tic,
-    )
-    return result
