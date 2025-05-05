@@ -1,19 +1,13 @@
 from collections.abc import Callable, Collection
 from time import perf_counter
 import distopf as opf
-import distopf.multiperiod as mpopf
-from numpy import sqrt
 import numpy as np
 import cvxpy as cp
 import pandas as pd
-from scipy.optimize import OptimizeResult, linprog
-from scipy.sparse import csr_array
 import pyomo.environ as pe
-from scipy.optimize import OptimizeResult, linprog
+from scipy.optimize import OptimizeResult
 from distopf import (
-    LinDistModel,
-    LinDistModelL,
-    LinDistModelCapMI,
+    LinDistModel
 )
 from distopf.base import LinDistBase
 from distopf.opf_solver import lp_solve
