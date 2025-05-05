@@ -372,7 +372,6 @@ class DSSParser:
             switch_status = None
             element_type = self.dss.CktElement.Name().lower().split(".")[0]
             element_name = self.dss.CktElement.Name().lower().split(".")[1]
-            s_out = self._get_powers()
             z_matrix_real = np.zeros((3, 3))
             z_matrix_imag = np.zeros((3, 3))
             if element_type not in ["line", "transformer", "reactor"]:

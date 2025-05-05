@@ -2,6 +2,7 @@ from collections.abc import Callable, Collection
 from time import perf_counter
 import distopf as opf
 import distopf.multiperiod as mpopf
+from distopf.multiperiod.base_mp import LinDistBaseMP
 from numpy import sqrt
 import numpy as np
 import cvxpy as cp
@@ -18,8 +19,49 @@ from distopf import (
 from distopf.base import LinDistBase
 from distopf.opf_solver import lp_solve
 
+def pyo_obj_loss(model: LinDistBaseMP, xk: pe.Var, **kwargs):
+    """
 
-def pyo_battery_efficiency(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
+    Parameters
+    ----------
+    model : LinDistModel, or LinDistModelP, or LinDistModelQ
+    xk : cp.Variable
+    kwargs :
+
+    Returns
+    -------
+    f: cp.Expression
+        Expression to be minimized
+
+    """
+    if "start_step" in model.__dict__.keys():
+        start_step = model.start_step
+    else:
+        start_step = 0
+    index_list = []
+    r_list = np.array([])
+    for t in range(start_step, start_step + model.n_steps):
+        for a in "abc":
+            if not model.phase_exists(a):
+                continue
+            i = model.x_maps[t][a].bi
+            j = model.x_maps[t][a].bj
+            r_list = np.append(r_list, np.array(model.r[a + a][i, j]).flatten())
+            r_list = np.append(r_list, np.array(model.r[a + a][i, j]).flatten())
+            index_list = np.append(
+                index_list, model.x_maps[t][a].pij.to_numpy().flatten()
+            )
+            index_list = np.append(
+                index_list, model.x_maps[t][a].qij.to_numpy().flatten()
+            )
+    r = np.array(r_list)
+    ix = np.array(index_list).astype(int)
+    if isinstance(xk, pe.Var):
+        return sum([r[i] * xk[ix[i]]**2 for i in range(len(ix))])
+    else:
+        return np.vdot(r, xk[ix] ** 2)
+
+def pyo_battery_efficiency(model: LinDistBaseMP, x: pe.Var, **kwargs):
     """
 
     Parameters
@@ -59,7 +101,27 @@ def pyo_battery_efficiency(model: mpopf.LinDistModelMulti, x: pe.Var, **kwargs):
     return sum([vec1[i] * x[ix[i]] for i in range(len(ix))])
 
 
-def pyo_voltage_reduction(model: opf.LinDistModel, x: pe.Var, **kwargs):
+def pyo_obj_loss_batt(
+    model: LinDistBaseMP, xk: cp.Variable, **kwargs
+) -> cp.Expression:
+    """
+
+    Parameters
+    ----------
+    model : LinDistModel, or LinDistModelP, or LinDistModelQ
+    xk : cp.Variable
+    kwargs :
+
+    Returns
+    -------
+    f: cp.Expression
+        Expression to be minimized
+
+    """
+    return pyo_obj_loss(model, xk) + pyo_battery_efficiency(model, xk)
+
+
+def pyo_voltage_reduction(model: LinDistBaseMP, x: pe.Var, **kwargs):
     v_list = []
     for a in "abc":
         if not model.phase_exists(a):
