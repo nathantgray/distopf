@@ -34,7 +34,6 @@ def kvl_three_phase_rule(m: ConcreteModel, t, i, j, ph):
     if ph == "c":
         a, b, c = "c", "a", "b"
         aa, ab, ac = "cc", "ac", "bc"
-
     return (
         m.v[t, j, a]
         - m.v[t, i, a]
@@ -70,8 +69,12 @@ def battery_charge_rule(m: ConcreteModel, t, j, ph):
     return charge_next == charge_prev + delta_charge
 
 
+def p_gen_rule(m: ConcreteModel, t, j, ph):
+    return m.p_gen[t, j, ph] == m.p_gen_setpoint[t, j, ph]
+
+
 def q_gen_limit_rule(m: ConcreteModel, t, j, ph):
-    q_max = sqrt(m.s_gen_rated[j, ph] ** 2 - m.p_gen[t, j, ph] ** 2)
+    q_max = sqrt(m.s_gen_rated[j, ph] ** 2 - m.p_gen_setpoint[t, j, ph] ** 2)
     q_min = -q_max
     return inequality(q_min, m.q_gen[t, j, ph], q_max)
 
@@ -97,13 +100,13 @@ def discharging_power_limit_rule(m: ConcreteModel, t, j, ph):
 
 
 def include_lindist_p_flow_constraint(cm: ConcreteModel):
-    cm.real_power_balance = Constraint(
+    cm.active_power_balance = Constraint(
         cm.t_set, cm.node_set, cm.phase_set, rule=active_power_balance_rule
     )
 
 
 def include_lindist_q_flow_constraint(cm: ConcreteModel):
-    cm.real_power_balance = Constraint(
+    cm.reactive_power_balance = Constraint(
         cm.t_set, cm.node_set, cm.phase_set, rule=reactive_power_balance_rule
     )
 
@@ -123,6 +126,12 @@ def include_voltage_limit_constraint(cm: ConcreteModel):
 def include_substation_voltage_constraint(cm: ConcreteModel):
     cm.substation_voltage_magnitude = Constraint(
         cm.t_set, cm.node_set, cm.phase_set, rule=substation_voltage_magnitude_rule
+    )
+
+
+def include_p_gen_constraint(cm: ConcreteModel):
+    cm.p_gen_constraint = Constraint(
+        cm.t_set, cm.gen_set, cm.phase_set, rule=p_gen_rule
     )
 
 

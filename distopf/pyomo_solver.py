@@ -6,9 +6,7 @@ import cvxpy as cp
 import pandas as pd
 import pyomo.environ as pe
 from scipy.optimize import OptimizeResult
-from distopf import (
-    LinDistModel
-)
+from distopf import LinDistModel
 from distopf.base import LinDistBase
 from distopf.opf_solver import lp_solve
 
@@ -42,7 +40,7 @@ def cp_obj_loss(model: LinDistBase, x, **kwargs):
     ix = np.array(index_list).astype(int)
     terms = []
     for i in range(len(ix)):
-        terms.append(r*x[ix[i]**2])
+        terms.append(r * x[ix[i] ** 2])
     return sum(terms)
 
 

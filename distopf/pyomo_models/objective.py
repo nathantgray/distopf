@@ -73,19 +73,23 @@ def loss_minimize_with_scd(model, **kwargs):
     r = model.r
     # Calculate the total losses
     total_loss = sum(
-        r[ph + ph][i, j] * (model.P[t, (i, j), ph] ** 2 + model.Q[t, (i, j), ph] ** 2)
-        for t in model.Tset
-        for (i, j) in model.Lset
-        for ph in model.phases
+        r[ph + ph][i, j] * (model.p[t, (i, j), ph] ** 2 + model.q[t, (i, j), ph] ** 2)
+        for t in model.t_set
+        for (i, j) in model.link_set
+        for ph in model.phase_set
     )
     # scd_terms = sum((1 - model.n_c[j,ph]) * model.P_c[t, j,ph] + ((1 / model.n_d[j,ph]) - 1) * model.P_d[t, j,ph] for t in model.Tset for j in model.Bset for ph in model.phases)
     scd_terms = sum(
-        (1 - model.eta_c[j, ph]) * model.P_c[t, j, ph]
-        + (((1 / model.eta_d[j, ph]) - 1) if model.eta_d[j, ph] != 0 else 1.0)
-        * model.P_d[t, j, ph]
-        for t in model.Tset
-        for j in model.Bset
-        for ph in model.phases
+        (1 - model.charge_efficiency[j, ph]) * model.p_charge[t, j, ph]
+        + (
+            ((1 / model.discharge_efficiency[j, ph]) - 1)
+            if model.discharge_efficiency[j, ph] != 0
+            else 1.0
+        )
+        * model.p_discharge[t, j, ph]
+        for t in model.t_set
+        for j in model.bat_set
+        for ph in model.phase_set
     )
     alpha = 1e-3
     return total_loss + alpha * scd_terms

@@ -19,6 +19,7 @@ from distopf import (
 from distopf.base import LinDistBase
 from distopf.opf_solver import lp_solve
 
+
 def pyo_obj_loss(model: LinDistBaseMP, xk: pe.Var, **kwargs):
     """
 
@@ -57,9 +58,10 @@ def pyo_obj_loss(model: LinDistBaseMP, xk: pe.Var, **kwargs):
     r = np.array(r_list)
     ix = np.array(index_list).astype(int)
     if isinstance(xk, pe.Var):
-        return sum([r[i] * xk[ix[i]]**2 for i in range(len(ix))])
+        return sum([r[i] * xk[ix[i]] ** 2 for i in range(len(ix))])
     else:
         return np.vdot(r, xk[ix] ** 2)
+
 
 def pyo_battery_efficiency(model: LinDistBaseMP, x: pe.Var, **kwargs):
     """
@@ -101,9 +103,7 @@ def pyo_battery_efficiency(model: LinDistBaseMP, x: pe.Var, **kwargs):
     return sum([vec1[i] * x[ix[i]] for i in range(len(ix))])
 
 
-def pyo_obj_loss_batt(
-    model: LinDistBaseMP, xk: cp.Variable, **kwargs
-) -> cp.Expression:
+def pyo_obj_loss_batt(model: LinDistBaseMP, xk: cp.Variable, **kwargs) -> cp.Expression:
     """
 
     Parameters

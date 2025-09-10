@@ -69,7 +69,7 @@ def handle_bat_input(bat_data: pd.DataFrame) -> pd.DataFrame:
     return bat
 
 
-class BaseModel:
+class PyoMP2:
     def __init__(
         self,
         branch_data: pd.DataFrame = None,
@@ -83,6 +83,7 @@ class BaseModel:
         n_steps: int = 24,
         delta_t: float = 1,  # hours per step
     ):
+        self.cm = ConcreteModel(name="BaseModelMP")
         # ~~~~~~~~~~~~~~~~~~~~ Load Data Frames ~~~~~~~~~~~~~~~~~~~~
         self.branch = handle_branch_input(branch_data)
         self.bus = handle_bus_input(bus_data)
@@ -136,8 +137,6 @@ class BaseModel:
         }
         return r, x
 
-
-
     def _parse_bus_data(self):
         bus_lookup = self.bus.set_index("id")
         p_load_shape = {}
@@ -172,70 +171,67 @@ class BaseModel:
             for ph in "abc"
         }
 
-    def _parse_bus_data(self):
-        bus_lookup = self.bus.set_index("id")
-        p_load_shape = {}
-        q_load_shape = {}
-        for i in self.bus["id"]:
-            for ph in "abc":
-                load_shape = bus_lookup.at[i, f"load_shape"]
-                if load_shape in self.schedules.columns:
-                    p_load_shape[(i, ph)] = self.schedules[load_shape]
-                    q_load_shape[(i, ph)] = self.schedules[load_shape]
-                elif f"{load_shape}.{ph}.p" in self.schedules.columns:
-                    p_load_shape[(i, ph)] = self.schedules[f"{load_shape}.{ph}.p"]
-                    q_load_shape[(i, ph)] = self.schedules[f"{load_shape}.{ph}.q"]
-        self.p_load = {
-            (t, i, ph): bus_lookup.at[i, f"pl_{ph}"] * p_load_shape[(i, ph)][t]
-            for t in self.t_set
-            for i in self.bus["id"]
+    def import_regulator_data(self):
+        self.cm.tap = {}
+        self.cm.ratio = {}
+        if self.reg is None:
+            return
+        reg_lookup = self.reg.set_index("tb")
+        self.cm.tap = {
+            (j, ph): get(reg_lookup[f"tap_{ph}"], j, 0)
+            for j in self.reg["tb"]
             for ph in "abc"
         }
-        self.q_load = {
-            (t, i, ph): bus_lookup.at[i, f"ql_{ph}"] * q_load_shape[(i, ph)][t]
-            for t in self.t_set
-            for i in self.bus["id"]
-            for ph in "abc"
-        }
-        self.v_min = bus_lookup.v_min.to_dict()
-        self.v_max = bus_lookup.v_max.to_dict()
-        self.v_swing = {
-            (t, i, ph): bus_lookup.at[i, f"v_{ph}"]
-            for t in self.t_set
-            for i in [self.swing_bus_id]
+        self.cm.ratio = {
+            (j, ph): get(reg_lookup[f"ratio_{ph}"], j, )
+            for j in self.reg["tb"]
             for ph in "abc"
         }
 
-class PyoMP(BaseModel):
     def import_generator_data(self):
         ## parsing gen_data
         self.cm.p_gen_setpoint = {}
         self.cm.q_gen_setpoint = {}
         self.cm.s_gen_rated = {}
-        if self.gen is not None:
-            gen_lookup = self.gen.set_index("id")
-            self.cm.p_gen_setpoint = {
-                (t, i, ph): gen_lookup.at[i, f"p{ph}"] * self.schedules.PV[t]
-                for t in self.t_set
-                for i in self.gen["id"]
-                for ph in "abc"
-            }
-            self.cm.q_gen_setpoint = {
-                (t, i, ph): gen_lookup.at[i, f"q{ph}"]
-                for t in self.t_set
-                for i in self.gen["id"]
-                for ph in "abc"
-            }
-            self.cm.s_gen_rated = {
-                (i, ph): gen_lookup.at[i, f"s{ph}_max"]
-                for i in self.gen["id"]
-                for ph in "abc"
-            }
+        self.cm.control_variable = {}
+        if self.gen is None:
+            return 
+        gen_lookup = self.gen.set_index("id")
+        self.cm.p_gen_setpoint = {
+            (t, i, ph): gen_lookup.at[i, f"p{ph}"] * self.schedules.PV[t]
+            for t in self.t_set
+            for i in self.gen["id"]
+            for ph in "abc"
+        }
+        self.cm.q_gen_setpoint = {
+            (t, i, ph): gen_lookup.at[i, f"q{ph}"]
+            for t in self.t_set
+            for i in self.gen["id"]
+            for ph in "abc"
+        }
+        self.cm.s_gen_rated = {
+            (i, ph): gen_lookup.at[i, f"s{ph}_max"]
+            for i in self.gen["id"]
+            for ph in "abc"
+        }
+        self.cm.q_max_manual = {
+            (i, ph): gen_lookup.get(f"q{ph}_max", np.ones_like(q_min) * 100e3)
+            for i in self.gen["id"]
+            for ph in "abc"
+        }
+        self.cm.q_min_manual = {
+            (i, ph): gen_lookup.get(f"q{ph}_min", np.ones_like(q_min) * -100e3)
+            for i in self.gen["id"]
+            for ph in "abc"
+        }
+        self.cm.control_variable = {
+            (i, ph): gen_lookup.at[i, f"control_variable"]
+            for i in self.gen["id"]
+            for ph in "abc"
+        }
 
     def import_battery_data_old(self):
-        phases = ["a", "b", "c"]
         ## parsing bat_data
-        # self.cm.bat_set = []
         self.cm.p_bat_max = {}
         self.cm.s_bat_max = {}
         self.cm.charge_efficiency = {}
@@ -243,47 +239,48 @@ class PyoMP(BaseModel):
         self.cm.charge_state_min = {}
         self.cm.charge_state_max = {}
         self.cm.charge_state_initial = {}
-        if self.bat is not None:
-            bat_lookup = self.bat.set_index("id")
-            self.cm.p_bat_max = {
-                (i, ph): bat_lookup.at[i, f"Pb_max_{ph}"]
-                for i in self.bat["id"]
-                for ph in "abc"
-            }
-            self.cm.s_bat_max = {
-                (i, ph): bat_lookup.at[i, f"hmax_{ph}"]
-                for i in self.bat["id"]
-                for ph in "abc"
-            }
-            self.cm.charge_efficiency = {
-                (i, ph): bat_lookup.at[i, f"nc_{ph}"]
-                for i in self.bat["id"]
-                for ph in "abc"
-            }
-            self.cm.discharge_efficiency = {
-                (i, ph): bat_lookup.at[i, f"nd_{ph}"]
-                for i in self.bat["id"]
-                for ph in "abc"
-            }
-            self.cm.charge_state_min = {
-                (i, ph): bat_lookup.at[i, f"bmin_{ph}"]
-                for i in self.bat["id"]
-                for ph in "abc"
-            }
-            self.cm.charge_state_max = {
-                (i, ph): bat_lookup.at[i, f"bmax_{ph}"]
-                for i in self.bat["id"]
-                for ph in "abc"
-            }
-            self.cm.charge_state_initial = {
-                (i, ph): (
-                    self.cm.charge_state_min[(i, ph)]
-                    + self.cm.charge_state_max[(i, ph)]
-                )
-                / 2
-                for i in self.bat["id"]
-                for ph in "abc"
-            }
+        if self.bat is None:
+            return 
+        bat_lookup = self.bat.set_index("id")
+        self.cm.p_bat_max = {
+            (i, ph): bat_lookup.at[i, f"Pb_max_{ph}"]
+            for i in self.bat["id"]
+            for ph in "abc"
+        }
+        self.cm.s_bat_max = {
+            (i, ph): bat_lookup.at[i, f"hmax_{ph}"]
+            for i in self.bat["id"]
+            for ph in "abc"
+        }
+        self.cm.charge_efficiency = {
+            (i, ph): bat_lookup.at[i, f"nc_{ph}"]
+            for i in self.bat["id"]
+            for ph in "abc"
+        }
+        self.cm.discharge_efficiency = {
+            (i, ph): bat_lookup.at[i, f"nd_{ph}"]
+            for i in self.bat["id"]
+            for ph in "abc"
+        }
+        self.cm.charge_state_min = {
+            (i, ph): bat_lookup.at[i, f"bmin_{ph}"]
+            for i in self.bat["id"]
+            for ph in "abc"
+        }
+        self.cm.charge_state_max = {
+            (i, ph): bat_lookup.at[i, f"bmax_{ph}"]
+            for i in self.bat["id"]
+            for ph in "abc"
+        }
+        self.cm.charge_state_initial = {
+            (i, ph): (
+                self.cm.charge_state_min[(i, ph)]
+                + self.cm.charge_state_max[(i, ph)]
+            )
+            / 2
+            for i in self.bat["id"]
+            for ph in "abc"
+        }
 
     def import_bus_data(self):
         self._parse_bus_data()
@@ -320,7 +317,8 @@ class PyoMP(BaseModel):
         self.cm.link_set = sorted(set(zip(self.branch["fb"], self.branch["tb"])))
         self.cm.gen_set = sorted(set(self.gen["id"]))
         self.cm.cap_set = sorted(set(self.cap["id"]))
-        self.cm.reg_set = sorted(set(zip(self.reg["fb"], self.reg["tb"])))
+        self.cm.reg_set = sorted(set(self.reg["tb"]))
+        self.cm.v_reg_set = sorted(set(zip(self.reg["fb"], self.reg["tb"])))
         self.cm.bat_set = sorted(set(self.bat["id"]))
         self.cm.phase_set = sorted({"a", "b", "c"})
         self.cm.swing_bus_set = sorted({self.swing_bus_id})
@@ -333,6 +331,7 @@ class PyoMP(BaseModel):
         self.cm.cost = self.schedules.price
 
         self.import_bus_data()
+        self.import_regulator_data()
         self.import_generator_data()
         self.import_battery_data_old()
 
@@ -346,10 +345,15 @@ class PyoMP(BaseModel):
         )
         self.cm.p_gen = Var(self.cm.t_set, self.cm.gen_set, self.cm.phase_set)
         self.cm.q_gen = Var(self.cm.t_set, self.cm.gen_set, self.cm.phase_set)
+        self.cm.q_cap = Var(self.cm.t_set, self.cm.cap_set, self.cm.phase_set)
+        self.cm.v_reg = Var(self.cm.t_set, self.cm.reg_set, self.cm.phase_set)
         self.cm.p_charge = Var(
             self.cm.t_set, self.cm.bat_set, self.cm.phase_set, domain=NonNegativeReals
         )
         self.cm.p_discharge = Var(
+            self.cm.t_set, self.cm.bat_set, self.cm.phase_set, domain=NonNegativeReals
+        )
+        self.cm.p_batt = Var(
             self.cm.t_set, self.cm.bat_set, self.cm.phase_set, domain=NonNegativeReals
         )
         self.cm.charge_state = Var(
@@ -357,6 +361,7 @@ class PyoMP(BaseModel):
         )
         # constraints
 
+        include_net_batt_power_equation(self.cm)
         include_substation_voltage_constraint(self.cm)
         include_lindist_p_flow_constraint(self.cm)
         include_lindist_q_flow_constraint(self.cm)
@@ -485,6 +490,126 @@ def extract_link_values_df(var: Var):
     df.columns.name = None
     return df
 
+
+def include_net_batt_power_equation(cm: ConcreteModel):
+    def p_batt_rule(m: ConcreteModel, t, j, ph):
+        return m.p_gen[t, j, ph] == m.p_gen_setpoint[t, j, ph]
+    cm.p_batt_constraint = Constraint(cm.t_set, cm.bat_set, cm.phase_set, rule=p_batt_rule)
+
+
+
+
+def include_voltage_drop_constraint(cm: ConcreteModel):
+    cm.kvl_three_phase = Constraint(
+        cm.t_set, cm.link_set, cm.phase_set, rule=kvl_three_phase_rule
+    )
+
+def kvl_three_phase_rule(m: ConcreteModel, t, i, j, ph):
+    if (i, j) in m.reg_set:
+        return Constraint.Skip
+    a, b, c = "a", "b", "c"
+    aa, ab, ac = "aa", "ab", "ac"
+    if ph == "b":
+        a, b, c = "b", "c", "a"
+        aa, ab, ac = "bb", "bc", "ab"
+    if ph == "c":
+        a, b, c = "c", "a", "b"
+        aa, ab, ac = "cc", "ac", "bc"
+    return (
+        m.v[t, j, a]
+        - m.v[t, i, a]
+        + 2 * (m.r[aa][i, j] * m.p[t, i, j, a] + m.x[aa][i, j] * m.q[t, i, j, a])
+        + (-m.r[ab][i, j] + sqrt(3) * m.x[ab][i, j]) * m.p[t, i, j, b]
+        + (-m.x[ab][i, j] - sqrt(3) * m.r[ab][i, j]) * m.q[t, i, j, b]
+        + (-m.r[ac][i, j] - sqrt(3) * m.x[ac][i, j]) * m.p[t, i, j, c]
+        + (-m.x[ac][i, j] + sqrt(3) * m.r[ac][i, j]) * m.q[t, i, j, c]
+        == 0
+    )
+
+def regulator_v_drop_rule(m: ConcreteModel, t, i, j, ph):
+    return (
+        m.v_reg[t, j, ph]
+        - m.v[t, j, ph]
+        + 2 * (m.r[ph + ph][i, j] * m.p[t, i, j, ph] + m.x[ph + ph][i, j] * m.q[t, i, j, ph])
+        == 0
+    )
+
+def regulator_tap_rule(m: ConcreteModel, t, i, j, ph):
+    return (
+        m.v_reg[t, j, ph] == m.v[t, i, ph]*m.ratio[j, ph]**2
+    )
+
+def include_regulator_equation(cm: ConcreteModel):
+    cm.regulator_v_drop = Constraint(
+        cm.t_set, cm.reg_set, cm.phase_set, rule=regulator_v_drop_rule
+    )
+    cm.regulator_tap = Constraint(
+        cm.t_set, cm.reg_set, cm.phase_set, rule=regulator_tap_rule
+    )
+
+
+
+def p_control_p_gen_rule(m: ConcreteModel, t, j, ph):
+    return m.p_gen[t, j, ph] <= m.p_gen_setpoint[t, j, ph]
+
+
+def p_control_q_gen_rule(m: ConcreteModel, t, j, ph):
+    return m.q_gen[t, j, ph] == m.q_gen_setpoint[t, j, ph]
+
+
+def q_control_p_gen_rule(m: ConcreteModel, t, j, ph):
+    return m.p_gen[t, j, ph] == m.p_gen_setpoint[t, j, ph]
+
+
+def q_control_q_gen_rule(m: ConcreteModel, t, j, ph):
+    q_max = sqrt(m.s_gen_rated[j, ph] ** 2 - m.p_gen_setpoint[t, j, ph] ** 2)
+    return inequality(-q_max, m.q_gen[t, j, ph], q_max)
+
+def manual_q_gen_limit_rule(m: ConcreteModel, t, j, ph):
+    q_max_manual = m.q_max_manual[j, ph]
+    q_min_manual = m.q_min_manual[j, ph]
+    return inequality(q_min_manual, m.q_gen[t, j, ph], q_max_manual)
+
+
+def pq_control_rule(m: ConcreteModel, t, j, ph):
+    control_variable = m.control_variable[j, ph]
+    if control_variable == "pq":
+        return m.p_gen[t, j, ph] ** 2 + m.q_gen[t, j, ph] ** 2 <= m.s_gen_rated[j, ph] ** 2 
+    return Constraint.Skip
+
+def p_gen_rule(m: ConcreteModel, t, j, ph):
+    control_variable = m.control_variable[j, ph]
+    if control_variable == "p":
+        return p_control_p_gen_rule(m, t, j, ph)
+    elif control_variable == "q":
+        return q_control_p_gen_rule(m, t, j, ph)
+    elif control_variable == "pq":
+        return pq_control_rule(m, t, j, ph)
+    return Constraint.Skip
+    
+def q_gen_rule(m: ConcreteModel, t, j, ph):
+    control_variable = m.control_variable[j, ph]
+    if control_variable == "p":
+        return p_control_q_gen_rule(m, t, j, ph)
+    elif control_variable == "q":
+        return q_control_q_gen_rule(m, t, j, ph)
+    elif control_variable == "pq":
+        return pq_control_rule(m, t, j, ph)
+    return Constraint.Skip
+
+def include_gen_equations(cm: ConcreteModel):
+    cm.manual_q_gen_limit = Constraint(
+        cm.t_set, cm.gen_set, cm.phase_set, rule=manual_q_gen_limit_rule
+    )
+    cm.p_gen_constraint = Constraint(
+        cm.t_set, cm.gen_set, cm.phase_set, rule=p_gen_rule
+    )
+    cm.q_gen_constraint = Constraint(
+        cm.t_set, cm.gen_set, cm.phase_set, rule=q_gen_rule
+    )
+    cm.pq_gen_constraint = Constraint(
+        cm.t_set, cm.gen_set, cm.phase_set, rule=pq_control_rule
+    )
 
 
 
